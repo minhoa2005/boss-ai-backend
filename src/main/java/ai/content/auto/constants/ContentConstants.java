@@ -126,4 +126,9 @@ public final class ContentConstants {
     // ===== LANGUAGE DESCRIPTIONS =====
     public static final String DESC_LANGUAGE_VI = "Tiếng Việt (tự nhiên, phù hợp văn hóa Việt)";
     public static final String DESC_LANGUAGE_EN = "English (natural, clear, engaging)";
+    public static final String CATEGORY_TONE = "tone";
+    public static final String CATEGORY_CONTENT_TYPE = "content_type";
+    public static final String CATEGORY_TARGET_AUDIENCE = "target_audience";
+    public static final String CATEGORY_LANGUAGE = "language";
+    public static final String CATEGORY_INDUSTRY = "industry";
 }

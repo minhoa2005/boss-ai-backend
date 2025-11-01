@@ -30,21 +30,26 @@ public class ContentService {
     private final OpenAiService openAiService;
     private final N8nService n8nService;
     private final SecurityUtil securityUtil;
+    private final ConfigurationValidationService configurationValidationService;
+    private final ContentNormalizationService contentNormalizationService;
 
     public ContentGenerateResponse generateContent(ContentGenerateRequest request) {
         try {
-            // 1. Validate input
-            validateGenerateRequest(request);
+            // 1. Normalize input to match database values
+            ContentGenerateRequest normalizedRequest = contentNormalizationService.normalizeGenerateRequest(request);
 
-            // 2. Get current user
+            // 2. Validate normalized input
+            validateGenerateRequest(normalizedRequest);
+
+            // 3. Get current user
             User currentUser = securityUtil.getCurrentUser();
             log.info("Generating content for user: {}", currentUser.getId());
 
-            // 3. Call OpenAI service
-            Map<String, Object> openaiResult = openAiService.generateContent(request, currentUser);
+            // 4. Call OpenAI service with normalized request
+            Map<String, Object> openaiResult = openAiService.generateContent(normalizedRequest, currentUser);
 
-            // 4. Build response
-            ContentGenerateResponse response = buildGenerateResponse(openaiResult, request);
+            // 5. Build response
+            ContentGenerateResponse response = buildGenerateResponse(openaiResult, normalizedRequest);
 
             log.info("Content generated successfully for user: {}", currentUser.getId());
             return response;
@@ -60,15 +65,18 @@ public class ContentService {
 
     public ContentGenerationDto saveContent(ContentSaveRequest request) {
         try {
-            // 1. Validate input
-            validateSaveRequest(request);
+            // 1. Normalize input to match database values
+            ContentSaveRequest normalizedRequest = contentNormalizationService.normalizeSaveRequest(request);
 
-            // 2. Get current user
+            // 2. Validate normalized input
+            validateSaveRequest(normalizedRequest);
+
+            // 3. Get current user
             User currentUser = securityUtil.getCurrentUser();
             log.info("Saving content for user: {}", currentUser.getId());
 
-            // 3. Save content in transaction
-            ContentGeneration saved = saveContentInTransaction(request, currentUser);
+            // 4. Save content in transaction with normalized request
+            ContentGeneration saved = saveContentInTransaction(normalizedRequest, currentUser);
 
             log.info("Content saved successfully with ID: {} for user: {}", saved.getId(), currentUser.getId());
             return contentGenerationMapper.toDto(saved);
@@ -84,18 +92,21 @@ public class ContentService {
 
     public Map<String, Object> triggerWorkflow(ContentWorkflowRequest request) {
         try {
-            // 1. Validate input
-            validateWorkflowRequest(request);
+            // 1. Normalize input to match database values
+            ContentWorkflowRequest normalizedRequest = contentNormalizationService.normalizeWorkflowRequest(request);
 
-            // 2. Get current user
+            // 2. Validate normalized input
+            validateWorkflowRequest(normalizedRequest);
+
+            // 3. Get current user
             User currentUser = securityUtil.getCurrentUser();
             log.info("Triggering workflow for user: {}", currentUser.getId());
 
-            // 3. Save content and trigger workflow in transaction
-            ContentGeneration saved = saveWorkflowContentInTransaction(request, currentUser);
+            // 4. Save content and trigger workflow in transaction with normalized request
+            ContentGeneration saved = saveWorkflowContentInTransaction(normalizedRequest, currentUser);
 
-            // 4. Trigger N8N workflow (no transaction)
-            Map<String, Object> workflowResult = n8nService.triggerWorkflow(request, currentUser.getId());
+            // 5. Trigger N8N workflow (no transaction) with normalized request
+            Map<String, Object> workflowResult = n8nService.triggerWorkflow(normalizedRequest, currentUser.getId());
 
             // 5. Update status in separate transaction
             updateWorkflowStatusInTransaction(saved.getId(), workflowResult);
@@ -215,11 +226,40 @@ public class ContentService {
         if (request == null) {
             throw new BusinessException("Generate request is required");
         }
-        if (request.getContent() == null || request.getContent().trim().isEmpty()) {
+        if (StringUtil.isBlank(request.getContent())) {
             throw new BusinessException("Content is required");
         }
-        if (request.getContentType() == null || request.getContentType().trim().isEmpty()) {
+        if (StringUtil.isBlank(request.getContentType())) {
             throw new BusinessException("Content type is required");
+        }
+
+        // Validate content type against database configurations
+        if (!configurationValidationService.isValidContentType(request.getContentType())) {
+            throw new BusinessException("Invalid content type: " + request.getContentType());
+        }
+
+        // Validate tone if provided
+        if (StringUtil.isNotBlank(request.getTone()) &&
+                !configurationValidationService.isValidTone(request.getTone())) {
+            throw new BusinessException("Invalid tone: " + request.getTone());
+        }
+
+        // Validate language if provided
+        if (StringUtil.isNotBlank(request.getLanguage()) &&
+                !configurationValidationService.isValidLanguage(request.getLanguage())) {
+            throw new BusinessException("Invalid language: " + request.getLanguage());
+        }
+
+        // Validate industry if provided
+        if (StringUtil.isNotBlank(request.getIndustry()) &&
+                !configurationValidationService.isValidIndustry(request.getIndustry())) {
+            throw new BusinessException("Invalid industry: " + request.getIndustry());
+        }
+
+        // Validate target audience if provided
+        if (StringUtil.isNotBlank(request.getTargetAudience()) &&
+                !configurationValidationService.isValidTargetAudience(request.getTargetAudience())) {
+            throw new BusinessException("Invalid target audience: " + request.getTargetAudience());
         }
     }
 
@@ -227,8 +267,38 @@ public class ContentService {
         if (request == null) {
             throw new BusinessException("Save request is required");
         }
-        if (request.getGeneratedContent() == null || request.getGeneratedContent().trim().isEmpty()) {
+        if (StringUtil.isBlank(request.getGeneratedContent())) {
             throw new BusinessException("Generated content is required");
+        }
+
+        // Validate content type if provided
+        if (StringUtil.isNotBlank(request.getContentType()) &&
+                !configurationValidationService.isValidContentType(request.getContentType())) {
+            throw new BusinessException("Invalid content type: " + request.getContentType());
+        }
+
+        // Validate tone if provided
+        if (StringUtil.isNotBlank(request.getTone()) &&
+                !configurationValidationService.isValidTone(request.getTone())) {
+            throw new BusinessException("Invalid tone: " + request.getTone());
+        }
+
+        // Validate language if provided
+        if (StringUtil.isNotBlank(request.getLanguage()) &&
+                !configurationValidationService.isValidLanguage(request.getLanguage())) {
+            throw new BusinessException("Invalid language: " + request.getLanguage());
+        }
+
+        // Validate industry if provided
+        if (StringUtil.isNotBlank(request.getIndustry()) &&
+                !configurationValidationService.isValidIndustry(request.getIndustry())) {
+            throw new BusinessException("Invalid industry: " + request.getIndustry());
+        }
+
+        // Validate target audience if provided
+        if (StringUtil.isNotBlank(request.getTargetAudience()) &&
+                !configurationValidationService.isValidTargetAudience(request.getTargetAudience())) {
+            throw new BusinessException("Invalid target audience: " + request.getTargetAudience());
         }
     }
 
@@ -236,8 +306,38 @@ public class ContentService {
         if (request == null) {
             throw new BusinessException("Workflow request is required");
         }
-        if (request.getGeneratedContent() == null || request.getGeneratedContent().trim().isEmpty()) {
+        if (StringUtil.isBlank(request.getGeneratedContent())) {
             throw new BusinessException("Generated content is required");
+        }
+
+        // Validate content type if provided
+        if (StringUtil.isNotBlank(request.getContentType()) &&
+                !configurationValidationService.isValidContentType(request.getContentType())) {
+            throw new BusinessException("Invalid content type: " + request.getContentType());
+        }
+
+        // Validate tone if provided
+        if (StringUtil.isNotBlank(request.getTone()) &&
+                !configurationValidationService.isValidTone(request.getTone())) {
+            throw new BusinessException("Invalid tone: " + request.getTone());
+        }
+
+        // Validate language if provided
+        if (StringUtil.isNotBlank(request.getLanguage()) &&
+                !configurationValidationService.isValidLanguage(request.getLanguage())) {
+            throw new BusinessException("Invalid language: " + request.getLanguage());
+        }
+
+        // Validate industry if provided
+        if (StringUtil.isNotBlank(request.getIndustry()) &&
+                !configurationValidationService.isValidIndustry(request.getIndustry())) {
+            throw new BusinessException("Invalid industry: " + request.getIndustry());
+        }
+
+        // Validate target audience if provided
+        if (StringUtil.isNotBlank(request.getTargetAudience()) &&
+                !configurationValidationService.isValidTargetAudience(request.getTargetAudience())) {
+            throw new BusinessException("Invalid target audience: " + request.getTargetAudience());
         }
     }
 

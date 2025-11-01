@@ -46,7 +46,7 @@ public class ConfigController {
      * - ADMIN: Returns all available content type configurations
      * - USER: Returns only user's selected content type configurations
      */
-    @GetMapping("/content_type")
+    @GetMapping("/content-type")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<BaseResponse<List<ConfigsPrimaryDto>>> getContentTypeConfigs() {
         log.info("Fetching content type configurations with role-based access");
@@ -103,7 +103,7 @@ public class ConfigController {
      * - ADMIN: Returns all available target audience configurations
      * - USER: Returns only user's selected target audience configurations
      */
-    @GetMapping("/target_audience")
+    @GetMapping("/target-audience")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<BaseResponse<List<ConfigsPrimaryDto>>> getTargetAudienceConfigs() {
         log.info("Fetching target audience configurations with role-based access");
@@ -144,7 +144,7 @@ public class ConfigController {
      * Returns all ConfigsPrimary data regardless of user selection - for selection
      * UI
      */
-    @GetMapping("/available/content_type")
+    @GetMapping("/available/content-type")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<BaseResponse<List<ConfigsPrimaryDto>>> getAllAvailableContentTypeConfigs() {
         log.info("Fetching all available content type configurations");
@@ -201,7 +201,7 @@ public class ConfigController {
      * Returns all ConfigsPrimary data regardless of user selection - for selection
      * UI
      */
-    @GetMapping("/available/target_audience")
+    @GetMapping("/available/target-audience")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<BaseResponse<List<ConfigsPrimaryDto>>> getAllAvailableTargetAudienceConfigs() {
         log.info("Fetching all available target audience configurations");
@@ -243,7 +243,7 @@ public class ConfigController {
      * - USER: Returns current user's content type selection details
      * Returns ConfigsUserDto objects that include selection metadata
      */
-    @GetMapping("/user/content_type")
+    @GetMapping("/user/content-type")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<BaseResponse<List<ConfigsUserDto>>> getUserContentTypeSelectionDetails() {
         log.info("Fetching content type selection details with role-based access");
@@ -303,7 +303,7 @@ public class ConfigController {
      * - USER: Returns current user's target audience selection details
      * Returns ConfigsUserDto objects that include selection metadata
      */
-    @GetMapping("/user/target_audience")
+    @GetMapping("/user/target-audience")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<BaseResponse<List<ConfigsUserDto>>> getUserTargetAudienceSelectionDetails() {
         log.info("Fetching target audience selection details with role-based access");

@@ -41,4 +41,6 @@ public interface ConfigsUserRepository extends JpaRepository<ConfigsUser, Long> 
                         "WHERE cp.category = :category AND cp.active = true " +
                         "ORDER BY cu.user.username, cp.sortOrder")
         List<ConfigsUser> findAllByCategory(@Param("category") String category);
+
+        public ConfigsUser findConfigsUserByUserAndConfigsPrimary(User user, ConfigsPrimary configsPrimary);
 }
