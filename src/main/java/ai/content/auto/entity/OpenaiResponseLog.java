@@ -2,7 +2,8 @@ package ai.content.auto.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Size;
-import java.time.OffsetDateTime;
+
+import java.time.Instant;
 import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
@@ -32,10 +33,10 @@ public class OpenaiResponseLog {
   private Map<String, Object> openaiResult;
 
   @Column(name = "create_at")
-  private OffsetDateTime createAt;
+  private Instant createAt;
 
   @Column(name = "response_time")
-  private OffsetDateTime responseTime;
+  private Instant responseTime;
 
   @Size(max = 50)
   @Column(name = "model", length = 50)

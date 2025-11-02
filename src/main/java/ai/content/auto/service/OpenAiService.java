@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -234,13 +234,14 @@ public class OpenAiService {
     protected void saveResponseLogInTransaction(
             User user, Map<String, Object> request, Map<String, Object> response, String model) {
         try {
+            String created_at = String.valueOf(response.get("created_at"));
             OpenaiResponseLog responseLog = new OpenaiResponseLog();
             responseLog.setUser(user);
             responseLog.setContentInput(request);
             responseLog.setOpenaiResult(response);
-            responseLog.setCreateAt(OffsetDateTime.now());
-            responseLog.setResponseTime(OffsetDateTime.now());
-            responseLog.setModel(model);
+            responseLog.setCreateAt(Instant.ofEpochMilli(Long.parseLong(created_at)));
+            responseLog.setResponseTime(Instant.now());
+            responseLog.setModel(response.get("model").toString());
 
             openaiResponseLogRepository.save(responseLog);
         } catch (Exception e) {
@@ -254,7 +255,7 @@ public class OpenAiService {
         try {
             OpenaiResponseLog errorLog = new OpenaiResponseLog();
             errorLog.setUser(user);
-            errorLog.setCreateAt(OffsetDateTime.now());
+            errorLog.setCreateAt(Instant.now());
             errorLog.setModel(model);
 
             Map<String, Object> errorResult = new HashMap<>();
@@ -653,12 +654,22 @@ public class OpenAiService {
                 return result;
             }
 
-            // Check response status
+            // Check response status - allow both "completed" and "incomplete" with content
             String status = (String) responseBody.get("status");
-            if (!"completed".equals(status)) {
+            boolean isCompleted = "completed".equals(status);
+            boolean isIncompleteWithContent = "incomplete".equals(status);
+
+            if (!isCompleted && !isIncompleteWithContent) {
                 result.put("status", ContentConstants.STATUS_FAILED);
-                result.put("errorMessage", "OpenAI response status is not completed: " + status);
+                result.put("errorMessage", "OpenAI response status is not valid: " + status);
                 return result;
+            }
+
+            // Log incomplete status for monitoring
+            if (isIncompleteWithContent) {
+                Object incompleteDetails = responseBody.get("incomplete_details");
+                log.info("Processing incomplete OpenAI response - status: {}, details: {}",
+                        status, incompleteDetails);
             }
 
             // Process new OpenAI response format with 'output' array
@@ -667,10 +678,19 @@ public class OpenAiService {
                 List<Map<String, Object>> outputs = (List<Map<String, Object>>) outputList;
                 Map<String, Object> firstOutput = outputs.get(0);
 
-                // Check output status
+                // Check output status - allow both "completed" and "incomplete" with content
                 String outputStatus = (String) firstOutput.get("status");
-                if (!"completed".equals(outputStatus)) {
-                    log.warn("Output status is not completed: {}", outputStatus);
+                boolean outputCompleted = "completed".equals(outputStatus);
+                boolean outputIncomplete = "incomplete".equals(outputStatus);
+
+                if (!outputCompleted && !outputIncomplete) {
+                    result.put("status", ContentConstants.STATUS_FAILED);
+                    result.put("errorMessage", "Invalid output status: " + outputStatus);
+                    return result;
+                }
+
+                if (outputIncomplete) {
+                    log.info("Processing incomplete output - status: {}", outputStatus);
                 }
 
                 // Extract content from the content array
@@ -733,7 +753,22 @@ public class OpenAiService {
             }
 
             result.put("processingTimeMs", System.currentTimeMillis() - startTime);
-            result.put("status", ContentConstants.STATUS_COMPLETED);
+
+            // Set final status based on response completeness
+            if (isCompleted) {
+                result.put("status", ContentConstants.STATUS_COMPLETED);
+            } else if (isIncompleteWithContent) {
+                result.put("status", ContentConstants.STATUS_COMPLETED);
+                result.put("isIncomplete", true);
+
+                // Add incomplete details if available
+                Object incompleteDetails = responseBody.get("incomplete_details");
+                if (incompleteDetails != null) {
+                    result.put("incompleteDetails", incompleteDetails);
+                }
+
+                log.info("Successfully processed incomplete OpenAI response with valid content");
+            }
 
             log.debug("Successfully processed OpenAI response - content length: {}, tokens used: {}",
                     result.get("characterCount"), result.get("tokensUsed"));

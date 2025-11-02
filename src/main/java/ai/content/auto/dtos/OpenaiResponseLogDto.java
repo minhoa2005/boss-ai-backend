@@ -3,6 +3,7 @@ package ai.content.auto.dtos;
 import jakarta.validation.constraints.Size;
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Map;
 
@@ -12,8 +13,8 @@ public record OpenaiResponseLogDto(
         UserDto user,
         Map<String, Object> contentInput,
         Map<String, Object> openaiResult,
-        OffsetDateTime createAt,
-        OffsetDateTime responseTime,
+        Instant createAt,
+        Instant responseTime,
         @Size(max = 50) String model)
         implements Serializable {
 }
