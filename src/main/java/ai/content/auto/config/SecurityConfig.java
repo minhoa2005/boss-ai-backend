@@ -153,6 +153,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/forgot-password").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/reset-password").permitAll()
 
+                        // WebSocket endpoints (authentication handled by WebSocketAuthInterceptor)
+                        .requestMatchers("/ws/**").permitAll()
+
                         // Actuator endpoints (for monitoring)
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
@@ -168,6 +171,9 @@ public class SecurityConfig {
 
                         // User endpoints
                         .requestMatchers("/api/v1/users/**").hasAnyRole("USER", "ADMIN")
+
+                        // WebSocket management endpoints
+                        .requestMatchers("/api/v1/websocket/**").hasAnyRole("USER", "ADMIN")
 
                         // All other requests require authentication
                         .anyRequest().authenticated())

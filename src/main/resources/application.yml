@@ -11,7 +11,7 @@ spring:
     name: boss-ai-backend
   main:
     allow-bean-definition-overriding: true
-  
+
   # Database Configuration
   datasource:
     url: jdbc:postgresql://localhost:5432/boss-ai
@@ -28,7 +28,6 @@ spring:
       connection-test-query: SELECT 1
       pool-name: BossAI-HikariCP
 
-  
   # JPA Configuration
   jpa:
     hibernate:
@@ -44,7 +43,6 @@ spring:
         order_inserts: true
         order_updates: true
 
-  
   # Redis Configuration
   data:
     redis:
@@ -59,7 +57,7 @@ spring:
           max-idle: 8
           min-idle: 0
           max-wait: -1ms
-  
+
   # Mail Configuration
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
@@ -78,6 +76,9 @@ spring:
   ai:
     openai:
       api-key: ${OPENAI_API_KEY:}
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      api-url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent}
 # Application Specific Configuration
 app:
   jwt:
@@ -85,7 +86,7 @@ app:
     access-token-expiration: 3600 # 1 hour in seconds
     refresh-token-expiration: 2592000 # 30 days in seconds
     issuer: boss-ai
-  
+
   # CORS Configuration
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,https://bossai.com.vn}
@@ -93,20 +94,61 @@ app:
     allowed-headers: ${CORS_ALLOWED_HEADERS:*}
     allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
     max-age: ${CORS_MAX_AGE:3600}
-  
+
   # Account Security Configuration
   account:
     max-failed-attempts: ${MAX_FAILED_ATTEMPTS:5}
     lock-duration-minutes: ${LOCK_DURATION_MINUTES:30}
-  
+
   # Mail Configuration
   mail:
     from: ${MAIL_FROM:noreply@bossai.com.vn}
-  
+
   # Frontend Configuration
   frontend:
     url: ${FRONTEND_URL:http://localhost:3000}
-  
+
+  # Queue Configuration
+  queue:
+    max-concurrent-jobs: ${QUEUE_MAX_CONCURRENT_JOBS:10000}
+    max-user-concurrent-jobs: ${QUEUE_MAX_USER_CONCURRENT_JOBS:10}
+    default-job-expiration-hours: ${QUEUE_DEFAULT_JOB_EXPIRATION_HOURS:24}
+    cleanup-retention-days: ${QUEUE_CLEANUP_RETENTION_DAYS:7}
+    processing-batch-size: ${QUEUE_PROCESSING_BATCH_SIZE:10}
+    retry-delay-minutes: ${QUEUE_RETRY_DELAY_MINUTES:5}
+    max-processing-time-minutes: ${QUEUE_MAX_PROCESSING_TIME_MINUTES:10}
+
+  # Content Processor Configuration
+  processor:
+    max-concurrent-jobs: ${PROCESSOR_MAX_CONCURRENT_JOBS:10}
+    job-timeout-seconds: ${PROCESSOR_JOB_TIMEOUT_SECONDS:120}
+    max-retry-attempts: ${PROCESSOR_MAX_RETRY_ATTEMPTS:3}
+    retry-base-delay-ms: ${PROCESSOR_RETRY_BASE_DELAY_MS:1000}
+    processing-batch-size: ${PROCESSOR_PROCESSING_BATCH_SIZE:20}
+
+  # Async Configuration
+  async:
+    core-pool-size: ${ASYNC_CORE_POOL_SIZE:10}
+    max-pool-size: ${ASYNC_MAX_POOL_SIZE:50}
+    queue-capacity: ${ASYNC_QUEUE_CAPACITY:1000}
+    keep-alive-seconds: ${ASYNC_KEEP_ALIVE_SECONDS:60}
+
+  # AI Provider Monitoring Configuration
+  provider:
+    alert:
+      cost:
+        daily-budget: ${AI_PROVIDER_DAILY_BUDGET:100.00}
+        monthly-budget: ${AI_PROVIDER_MONTHLY_BUDGET:2500.00}
+      performance:
+        response-time-threshold: ${AI_PROVIDER_RESPONSE_TIME_THRESHOLD:30000}
+        error-rate-threshold: ${AI_PROVIDER_ERROR_RATE_THRESHOLD:0.05}
+        consecutive-failures-threshold: ${AI_PROVIDER_CONSECUTIVE_FAILURES_THRESHOLD:5}
+      cooldown-minutes: ${AI_PROVIDER_ALERT_COOLDOWN_MINUTES:30}
+    monitoring:
+      health-check-interval-seconds: ${AI_PROVIDER_HEALTH_CHECK_INTERVAL:30}
+      performance-check-interval-seconds: ${AI_PROVIDER_PERFORMANCE_CHECK_INTERVAL:120}
+      dashboard-data-retention-days: ${AI_PROVIDER_DASHBOARD_RETENTION_DAYS:7}
+
   # Spring AI Configuration (disabled for now - set OPENAI_API_KEY environment variable to enable)
   autoconfigure:
     exclude:
@@ -116,7 +158,6 @@ app:
       - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
       - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
       - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
-
 
 # Logging Configuration - No SQL Queries in Logs
 logging:

@@ -30,7 +30,8 @@ src/main/java/ai/content/auto/
 ├── entity/         # JPA entities
 │   ├── User.java
 │   ├── UserRole.java
-│   └── UserRoleId.java
+│   ├── UserRoleId.java
+│   └── ContentVersion.java    # ✅ NEW: Content versioning entity
 ├── exception/      # Custom exceptions
 ├── mapper/         # Entity-DTO mappers
 ├── repository/     # Data access layer
@@ -46,6 +47,34 @@ src/main/java/ai/content/auto/
 │   └── UserService.java
 └── utils/          # Utility classes
 ```
+
+## Key Features ✅ **UPDATED**
+
+### Content Versioning System ✅ **NEW**
+- **Version Management**: Complete content versioning with automatic version numbering
+- **Performance Tracking**: Quality, readability, and SEO score tracking for each version
+- **A/B Testing**: Built-in comparison system for version performance analysis
+- **JSONB Storage**: Flexible parameter storage using PostgreSQL JSONB
+- **Audit Trail**: Complete audit logging with user tracking and timestamps
+- **Business Logic**: Built-in performance calculation and comparison methods
+
+### AI Content Generation
+- **Multi-Provider Support**: OpenAI integration with extensible provider architecture
+- **Response Logging**: Comprehensive logging of AI interactions for audit and cost tracking
+- **Cost Optimization**: Automatic cost calculation and token usage tracking
+- **Quality Assessment**: Automated content quality scoring and analysis
+
+### Authentication & Security
+- **JWT Authentication**: Stateless authentication with access and refresh tokens
+- **Role-Based Access Control**: Comprehensive RBAC with user role management
+- **Account Security**: Account locking, password policies, and secure password hashing
+- **API Security**: CORS configuration, security headers, and endpoint protection
+
+### Database & Performance
+- **Connection Pooling**: HikariCP with optimized connection management
+- **Caching**: Redis integration for session management and performance optimization
+- **Transaction Management**: Optimized transaction boundaries and isolation levels
+- **Performance Monitoring**: Built-in metrics and monitoring capabilities
 
 ## Configuration
 

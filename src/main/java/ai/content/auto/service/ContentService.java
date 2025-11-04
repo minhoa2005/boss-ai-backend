@@ -9,6 +9,7 @@ import ai.content.auto.exception.NotFoundException;
 import ai.content.auto.exception.InternalServerException;
 import ai.content.auto.mapper.ContentGenerationMapper;
 import ai.content.auto.repository.ContentGenerationRepository;
+import ai.content.auto.service.ai.AIProviderManager;
 import ai.content.auto.util.SecurityUtil;
 import ai.content.auto.util.StringUtil;
 import lombok.RequiredArgsConstructor;
@@ -27,11 +28,12 @@ public class ContentService {
 
     private final ContentGenerationRepository contentGenerationRepository;
     private final ContentGenerationMapper contentGenerationMapper;
-    private final OpenAiService openAiService;
+    private final AIProviderManager aiProviderManager;
     private final N8nService n8nService;
     private final SecurityUtil securityUtil;
     private final ConfigurationValidationService configurationValidationService;
     private final ContentNormalizationService contentNormalizationService;
+    private final ContentVersioningService contentVersioningService;
 
     public ContentGenerateResponse generateContent(ContentGenerateRequest request) {
         try {
@@ -45,11 +47,16 @@ public class ContentService {
             User currentUser = securityUtil.getCurrentUser();
             log.info("Generating content for user: {}", currentUser.getId());
 
-            // 4. Call OpenAI service with normalized request
-            Map<String, Object> openaiResult = openAiService.generateContent(normalizedRequest, currentUser);
+            // 4. Call AI provider manager with normalized request (transparent provider
+            // selection)
+            ContentGenerateResponse response = aiProviderManager.generateContent(normalizedRequest, currentUser);
 
-            // 5. Build response
-            ContentGenerateResponse response = buildGenerateResponse(openaiResult, normalizedRequest);
+            // 5. Set title if not provided
+            if (normalizedRequest.getTitle() != null) {
+                response.setTitle(normalizedRequest.getTitle());
+            } else if (response.getTitle() == null) {
+                response.setTitle(generateTitle(response.getGeneratedContent()));
+            }
 
             log.info("Content generated successfully for user: {}", currentUser.getId());
             return response;
@@ -60,6 +67,38 @@ public class ContentService {
         } catch (Exception e) {
             log.error("Unexpected error generating content for user: {}", securityUtil.getCurrentUserId(), e);
             throw new InternalServerException("Failed to generate content");
+        }
+    }
+
+    /**
+     * Generate content asynchronously using the queue system
+     * This method queues the request and returns immediately with job information
+     */
+    public ContentGenerateResponse generateContentAsync(ContentGenerateRequest request) {
+        try {
+            // 1. Normalize input to match database values
+            ContentGenerateRequest normalizedRequest = contentNormalizationService.normalizeGenerateRequest(request);
+
+            // 2. Validate normalized input
+            validateGenerateRequest(normalizedRequest);
+
+            // 3. Get current user
+            User currentUser = securityUtil.getCurrentUser();
+            log.info("Queuing async content generation for user: {}", currentUser.getId());
+
+            // 4. Queue the job for asynchronous processing
+            // This would integrate with QueueManagementService
+            // For now, fall back to synchronous processing
+            return generateContent(request);
+
+        } catch (BusinessException e) {
+            log.error("Business error queuing async content generation for user: {}", securityUtil.getCurrentUserId(),
+                    e);
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error queuing async content generation for user: {}", securityUtil.getCurrentUserId(),
+                    e);
+            throw new InternalServerException("Failed to queue content generation");
         }
     }
 
@@ -77,6 +116,9 @@ public class ContentService {
 
             // 4. Save content in transaction with normalized request
             ContentGeneration saved = saveContentInTransaction(normalizedRequest, currentUser);
+
+            // 5. Create version from saved content
+            createVersionFromSavedContent(saved, normalizedRequest);
 
             log.info("Content saved successfully with ID: {} for user: {}", saved.getId(), currentUser.getId());
             return contentGenerationMapper.toDto(saved);
@@ -343,27 +385,6 @@ public class ContentService {
 
     // Private helper methods
 
-    private ContentGenerateResponse buildGenerateResponse(Map<String, Object> openaiResult,
-            ContentGenerateRequest request) {
-        ContentGenerateResponse response = new ContentGenerateResponse();
-        response.setGeneratedContent((String) openaiResult.get("generatedContent"));
-        response.setWordCount((Integer) openaiResult.get("wordCount"));
-        response.setCharacterCount((Integer) openaiResult.get("characterCount"));
-        response.setTokensUsed((Integer) openaiResult.get("tokensUsed"));
-        response.setProcessingTimeMs((Long) openaiResult.get("processingTimeMs"));
-        response.setStatus((String) openaiResult.get("status"));
-        response.setErrorMessage((String) openaiResult.get("errorMessage"));
-
-        // Set title if not provided
-        if (request.getTitle() != null) {
-            response.setTitle(request.getTitle());
-        } else {
-            response.setTitle(generateTitle(response.getGeneratedContent()));
-        }
-
-        return response;
-    }
-
     private ContentGeneration buildContentGeneration(ContentSaveRequest request, User user) {
         ContentGeneration contentGeneration = new ContentGeneration();
         contentGeneration.setUser(user);
@@ -441,5 +462,37 @@ public class ContentService {
             return 0;
         }
         return text.trim().split("\\s+").length;
+    }
+
+    /**
+     * Create a version from saved content.
+     * 
+     * @param saved   Saved content generation
+     * @param request Original save request
+     */
+    private void createVersionFromSavedContent(ContentGeneration saved, ContentSaveRequest request) {
+        try {
+            // Build ContentGenerateResponse from saved content
+            ContentGenerateResponse response = new ContentGenerateResponse();
+            response.setGeneratedContent(saved.getGeneratedContent());
+            response.setTitle(saved.getTitle());
+            response.setWordCount(saved.getWordCount());
+            response.setCharacterCount(saved.getCharacterCount());
+            response.setAiProvider(saved.getAiProvider());
+            response.setAiModel(saved.getAiModel());
+            response.setIndustry(saved.getIndustry());
+            response.setTargetAudience(saved.getTargetAudience());
+            response.setTone(saved.getTone());
+            response.setLanguage(saved.getLanguage());
+            response.setStatus("SAVED");
+
+            // Create version
+            contentVersioningService.createVersion(saved.getId(), response);
+
+            log.info("Version created for saved content: {}", saved.getId());
+        } catch (Exception e) {
+            log.error("Error creating version for saved content: {}", saved.getId(), e);
+            // Don't throw - avoid breaking content save operation
+        }
     }
 }
