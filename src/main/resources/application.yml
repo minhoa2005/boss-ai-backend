@@ -89,7 +89,7 @@ app:
 
   # CORS Configuration
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:5175,https://bossai.com.vn}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,https://bossai.com.vn,https://*.vercel.app}
     allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS,PATCH}
     allowed-headers: ${CORS_ALLOWED_HEADERS:*}
     allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
