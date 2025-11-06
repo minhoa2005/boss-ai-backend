@@ -41,4 +41,8 @@ public class OpenaiResponseLog {
   @Size(max = 50)
   @Column(name = "model", length = 50)
   private String model;
+
+  @Size(max = 255)
+  @Column(name = "openai_response_id", length = 255)
+  private String openaiResponseId;
 }

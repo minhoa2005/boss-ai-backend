@@ -36,8 +36,11 @@ public class ContentService {
     private final ContentNormalizationService contentNormalizationService;
     private final ContentVersioningService contentVersioningService;
     private final UserRepository userRepository;
+    private final WebSocketService webSocketService;
 
     public ContentGenerateResponse generateContent(ContentGenerateRequest request) {
+        String tempJobId = "sync_" + System.currentTimeMillis(); // Temporary job ID for WebSocket updates
+
         try {
             // 1. Normalize input to match database values
             ContentGenerateRequest normalizedRequest = contentNormalizationService.normalizeGenerateRequest(request);
@@ -49,9 +52,24 @@ public class ContentService {
             User currentUser = securityUtil.getCurrentUser();
             log.info("Generating content for user: {}", currentUser.getId());
 
+            // Send initial progress update via WebSocket
+            webSocketService.sendJobStatusUpdate(tempJobId, "PROCESSING", Map.of(
+                    "message", "Starting content generation...",
+                    "progress", 10));
+
+            // Send progress update via WebSocket
+            webSocketService.sendJobStatusUpdate(tempJobId, "PROCESSING", Map.of(
+                    "message", "Calling AI provider...",
+                    "progress", 30));
+
             // 4. Call AI provider manager with normalized request (transparent provider
             // selection)
             ContentGenerateResponse response = aiProviderManager.generateContent(normalizedRequest, currentUser);
+
+            // Send progress update via WebSocket
+            webSocketService.sendJobStatusUpdate(tempJobId, "PROCESSING", Map.of(
+                    "message", "Processing AI response...",
+                    "progress", 60));
 
             // 5. Set title if not provided
             if (normalizedRequest.getTitle() != null) {
@@ -59,6 +77,11 @@ public class ContentService {
             } else if (response.getTitle() == null) {
                 response.setTitle(generateTitle(response.getGeneratedContent()));
             }
+
+            // Send progress update via WebSocket
+            webSocketService.sendJobStatusUpdate(tempJobId, "PROCESSING", Map.of(
+                    "message", "Saving generated content...",
+                    "progress", 80));
 
             // 6. Automatically save generated content to database
             ContentGeneration savedContent = saveGeneratedContentInTransaction(normalizedRequest, response,
@@ -68,7 +91,14 @@ public class ContentService {
             response.setContentId(savedContent.getId());
 
             // 8. Create version from generated content
-            createVersionFromGeneratedContent(savedContent, response);
+            createVersionFromGeneratedContent(savedContent, response, currentUser.getId());
+
+            // Send completion notification via WebSocket
+            webSocketService.sendJobCompletionNotification(currentUser.getId(), tempJobId, true, Map.of(
+                    "contentId", savedContent.getId(),
+                    "title", response.getTitle(),
+                    "generatedContent", response.getGeneratedContent(),
+                    "wordCount", response.getWordCount()));
 
             log.info("Content generated and saved successfully with ID: {} for user: {}", savedContent.getId(),
                     currentUser.getId());
@@ -76,9 +106,21 @@ public class ContentService {
 
         } catch (BusinessException e) {
             log.error("Business error generating content for user: {}", securityUtil.getCurrentUserId(), e);
+
+            // Send error notification via WebSocket
+            webSocketService.sendJobErrorNotification(securityUtil.getCurrentUserId(), tempJobId,
+                    "Content generation failed: " + e.getMessage(), Map.of(
+                            "error", e.getMessage()));
+
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error generating content for user: {}", securityUtil.getCurrentUserId(), e);
+
+            // Send error notification via WebSocket
+            webSocketService.sendJobErrorNotification(securityUtil.getCurrentUserId(), tempJobId,
+                    "Unexpected error: " + e.getMessage(), Map.of(
+                            "error", e.getMessage()));
+
             throw new InternalServerException("Failed to generate content");
         }
     }
@@ -89,6 +131,8 @@ public class ContentService {
      * available
      */
     public ContentGenerateResponse generateContentForUser(ContentGenerateRequest request, Long userId) {
+        String tempJobId = "temp_" + System.currentTimeMillis(); // Temporary job ID for WebSocket updates
+
         try {
             // 1. Normalize input to match database values
             ContentGenerateRequest normalizedRequest = contentNormalizationService.normalizeGenerateRequest(request);
@@ -100,8 +144,18 @@ public class ContentService {
             User user = getUserById(userId);
             log.info("Generating content for user: {} (async processing)", user.getId());
 
+            // Send progress update via WebSocket
+            webSocketService.sendJobStatusUpdate(tempJobId, "PROCESSING", Map.of(
+                    "message", "Calling AI provider...",
+                    "progress", 50));
+
             // 4. Call AI provider manager with normalized request
             ContentGenerateResponse response = aiProviderManager.generateContent(normalizedRequest, user);
+
+            // Send progress update via WebSocket
+            webSocketService.sendJobStatusUpdate(tempJobId, "PROCESSING", Map.of(
+                    "message", "Saving generated content...",
+                    "progress", 70));
 
             // 5. Set title if not provided
             if (normalizedRequest.getTitle() != null) {
@@ -116,8 +170,13 @@ public class ContentService {
             // 7. Set the saved content ID in response for reference
             response.setContentId(savedContent.getId());
 
+            // Send progress update via WebSocket
+            webSocketService.sendJobStatusUpdate(tempJobId, "PROCESSING", Map.of(
+                    "message", "Creating content version...",
+                    "progress", 90));
+
             // 8. Create version from generated content
-            createVersionFromGeneratedContent(savedContent, response);
+            createVersionFromGeneratedContent(savedContent, response, userId);
 
             log.info("Content generated and saved successfully with ID: {} for user: {} (async processing)",
                     savedContent.getId(), user.getId());
@@ -148,9 +207,8 @@ public class ContentService {
             User currentUser = securityUtil.getCurrentUser();
             log.info("Queuing async content generation for user: {}", currentUser.getId());
 
-            // 4. Queue the job for asynchronous processing
-            // This would integrate with QueueManagementService
-            // For now, fall back to synchronous processing
+            // 4. For now, fall back to synchronous processing with WebSocket updates
+            // TODO: Integrate with QueueManagementService for true async processing
             return generateContent(request);
 
         } catch (BusinessException e) {
@@ -545,6 +603,9 @@ public class ContentService {
         contentGeneration.setReadabilityScore(response.getReadabilityScore());
         contentGeneration.setSentimentScore(response.getSentimentScore());
 
+        // OpenAI response ID from response
+        contentGeneration.setOpenaiResponseId(response.getOpenaiResponseId());
+
         // Default values
         contentGeneration.setRetryCount(0);
         contentGeneration.setMaxRetries(ContentConstants.DEFAULT_MAX_RETRIES);
@@ -624,15 +685,18 @@ public class ContentService {
      * 
      * @param saved    Saved content generation
      * @param response Original generate response
+     * @param userId   User ID who owns the content
      */
-    private void createVersionFromGeneratedContent(ContentGeneration saved, ContentGenerateResponse response) {
+    private void createVersionFromGeneratedContent(ContentGeneration saved, ContentGenerateResponse response,
+            Long userId) {
         try {
-            // Create version from the response
-            contentVersioningService.createVersion(saved.getId(), response);
+            // Create version from the response with explicit user ID
+            // This avoids security context issues in background jobs
+            contentVersioningService.createVersionForUser(saved.getId(), response, userId);
 
-            log.info("Version created for generated content: {}", saved.getId());
+            log.info("Version created for generated content: {} by user: {}", saved.getId(), userId);
         } catch (Exception e) {
-            log.error("Error creating version for generated content: {}", saved.getId(), e);
+            log.error("Error creating version for generated content: {} by user: {}", saved.getId(), userId, e);
             // Don't throw - avoid breaking content generation operation
         }
     }

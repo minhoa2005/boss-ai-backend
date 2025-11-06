@@ -4,7 +4,6 @@ import jakarta.validation.constraints.Size;
 
 import java.io.Serializable;
 import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.util.Map;
 
 /** DTO for {@link ai.content.auto.entity.OpenaiResponseLog} */
@@ -15,6 +14,7 @@ public record OpenaiResponseLogDto(
         Map<String, Object> openaiResult,
         Instant createAt,
         Instant responseTime,
-        @Size(max = 50) String model)
+        @Size(max = 50) String model,
+        @Size(max = 255) String openaiResponseId)
         implements Serializable {
 }

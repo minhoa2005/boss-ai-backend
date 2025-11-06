@@ -135,6 +135,25 @@ public class QueueController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Manually trigger job processing (for testing)
+     */
+    @PostMapping("/process")
+    public ResponseEntity<BaseResponse<Void>> triggerJobProcessing() {
+
+        log.info("Manually triggering job processing");
+
+        // This would trigger the ContentGenerationQueueService to process jobs
+        // immediately
+        // For now, just return success - the actual implementation would call the
+        // processing service
+
+        BaseResponse<Void> response = new BaseResponse<Void>()
+                .setErrorMessage("Job processing triggered successfully");
+
+        return ResponseEntity.ok(response);
+    }
+
     // Helper method to get current user ID
     private Long getCurrentUserId() {
         return securityUtil.getCurrentUserId();

@@ -4,15 +4,18 @@ import ai.content.auto.constants.ContentConstants;
 import ai.content.auto.dtos.ContentGenerateRequest;
 import ai.content.auto.dtos.ContentGenerateResponse;
 import ai.content.auto.entity.N8nConfig;
+import ai.content.auto.entity.OpenaiResponseLog;
 import ai.content.auto.entity.User;
 import ai.content.auto.exception.BusinessException;
 import ai.content.auto.repository.N8nConfigRepository;
+import ai.content.auto.repository.OpenaiResponseLogRepository;
 import ai.content.auto.util.StringUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -30,6 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class GeminiProvider implements AIProvider {
 
     private final N8nConfigRepository n8nConfigRepository;
+    private final OpenaiResponseLogRepository openaiResponseLogRepository;
     private final RestTemplate restTemplate;
     private final AIProviderMetricsService metricsService;
 
@@ -185,6 +189,9 @@ public class GeminiProvider implements AIProvider {
             // Generate content with retry logic
             Map<String, Object> result = generateContentWithRetry(request, user, geminiConfig);
 
+            // Save response log in transaction
+            saveGeminiResponseLogInTransaction(user, request, result, geminiConfig);
+
             // Convert to ContentGenerateResponse
             ContentGenerateResponse response = convertToResponse(result);
 
@@ -201,10 +208,17 @@ public class GeminiProvider implements AIProvider {
             return response;
 
         } catch (BusinessException e) {
-            long responseTime = System.currentTimeMillis() - startTime;
-
             // Record failure metrics
             metricsService.recordFailure(PROVIDER_NAME, "BUSINESS_ERROR", e.getMessage());
+
+            // Save error log
+            N8nConfig geminiConfig = null;
+            try {
+                geminiConfig = getGeminiConfig();
+            } catch (Exception configEx) {
+                log.warn("Could not get Gemini config for error logging: {}", configEx.getMessage());
+            }
+            saveGeminiErrorLogInTransaction(user, e.getMessage(), geminiConfig);
 
             log.error("Gemini content generation failed for user: {} - error: {}",
                     user != null ? user.getId() : "null", e.getMessage());
@@ -213,10 +227,17 @@ public class GeminiProvider implements AIProvider {
             throw e;
 
         } catch (Exception e) {
-            long responseTime = System.currentTimeMillis() - startTime;
-
             // Record failure metrics
             metricsService.recordFailure(PROVIDER_NAME, "SYSTEM_ERROR", e.getMessage());
+
+            // Save error log
+            N8nConfig geminiConfig = null;
+            try {
+                geminiConfig = getGeminiConfig();
+            } catch (Exception configEx) {
+                log.warn("Could not get Gemini config for error logging: {}", configEx.getMessage());
+            }
+            saveGeminiErrorLogInTransaction(user, e.getMessage(), geminiConfig);
 
             log.error("Unexpected error in Gemini content generation for user: {}",
                     user != null ? user.getId() : "null", e);
@@ -270,7 +291,6 @@ public class GeminiProvider implements AIProvider {
 
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
-                log.debug("Gemini API call attempt {} of {}", attempt, MAX_RETRIES);
                 return generateContentInternal(request, user, geminiConfig);
 
             } catch (Exception e) {
@@ -377,29 +397,57 @@ public class GeminiProvider implements AIProvider {
         // Build the prompt for Gemini
         String prompt = buildGeminiPrompt(request);
 
-        // Gemini API structure
+        // Gemini API structure - following exact format from example
         Map<String, Object> contents = new HashMap<>();
+        contents.put("role", "user");
+
         Map<String, Object> parts = new HashMap<>();
         parts.put("text", prompt);
         contents.put("parts", List.of(parts));
 
         geminiRequest.put("contents", List.of(contents));
 
-        // Generation configuration
+        // Generation configuration - matching example parameters
         Map<String, Object> generationConfig = new HashMap<>();
         generationConfig.put("maxOutputTokens", maxTokens);
-        generationConfig.put("temperature", geminiConfig.getTemperature());
-        generationConfig.put("topP", 0.8);
-        generationConfig.put("topK", 40);
+
+        // Use different parameters for ads vs general content
+        String contentType = StringUtil.defaultIfBlank(
+                StringUtil.toLowerCase(request.getContentType()),
+                ContentConstants.CONTENT_TYPE_GENERAL);
+
+        if (StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_AD) ||
+                StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_ADVERTISEMENT)) {
+            // Parameters optimized for structured ad content
+            generationConfig.put("temperature", 0.2); // Lower temperature for more consistent structure
+            generationConfig.put("topP", 0.8);
+            generationConfig.put("topK", 40);
+        } else {
+            // Default parameters for general content
+            generationConfig.put("temperature", geminiConfig.getTemperature());
+            generationConfig.put("topP", 0.8);
+            generationConfig.put("topK", 40);
+        }
 
         geminiRequest.put("generationConfig", generationConfig);
 
-        // Safety settings (optional)
+        // Safety settings - matching example format
         List<Map<String, Object>> safetySettings = new ArrayList<>();
-        Map<String, Object> safetySetting = new HashMap<>();
-        safetySetting.put("category", "HARM_CATEGORY_HARASSMENT");
-        safetySetting.put("threshold", "BLOCK_MEDIUM_AND_ABOVE");
-        safetySettings.add(safetySetting);
+
+        // Add all safety categories from example
+        String[] categories = {
+                "HARM_CATEGORY_HATE_SPEECH",
+                "HARM_CATEGORY_HARASSMENT",
+                "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "HARM_CATEGORY_DANGEROUS_CONTENT"
+        };
+
+        for (String category : categories) {
+            Map<String, Object> safetySetting = new HashMap<>();
+            safetySetting.put("category", category);
+            safetySetting.put("threshold", "BLOCK_MEDIUM_AND_ABOVE");
+            safetySettings.add(safetySetting);
+        }
 
         geminiRequest.put("safetySettings", safetySettings);
 
@@ -410,6 +458,63 @@ public class GeminiProvider implements AIProvider {
      * Build comprehensive prompt for Gemini
      */
     private String buildGeminiPrompt(ContentGenerateRequest request) {
+        String contentType = StringUtil.defaultIfBlank(
+                StringUtil.toLowerCase(request.getContentType()),
+                ContentConstants.CONTENT_TYPE_GENERAL);
+
+        // Check if this is an advertisement content type
+        if (StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_AD) ||
+                StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_ADVERTISEMENT)) {
+            return buildGoogleAdsPrompt(request);
+        }
+
+        // Default prompt for other content types
+        return buildGeneralPrompt(request);
+    }
+
+    /**
+     * Build specialized prompt for Google Ads content following structured format
+     */
+    private String buildGoogleAdsPrompt(ContentGenerateRequest request) {
+        StringBuilder prompt = new StringBuilder();
+
+        // Role definition with experience
+        prompt.append("Bạn là một chuyên gia marketing kỹ thuật số với 10 năm kinh nghiệm về Google Ads.\n\n");
+
+        // Task definition
+        prompt.append("Nhiệm vụ của bạn là viết 3 phiên bản quảng cáo tìm kiếm (search ad) cho sản phẩm: '")
+                .append(request.getTitle() != null ? request.getTitle() : "Sản phẩm/Dịch vụ")
+                .append("'.\n\n");
+
+        // Product information
+        prompt.append("Thông tin chính về sản phẩm:\n");
+        prompt.append(request.getContent()).append("\n\n");
+
+        // Additional context if provided
+        if (request.getTargetAudience() != null) {
+            prompt.append("Đối tượng mục tiêu: ").append(request.getTargetAudience()).append("\n");
+        }
+        if (request.getIndustry() != null) {
+            prompt.append("Lĩnh vực: ").append(request.getIndustry()).append("\n");
+        }
+
+        // Critical output format requirements
+        prompt.append("\nYêu cầu định dạng đầu ra:\n");
+        prompt.append(
+                "Chỉ trả lời bằng một mảng JSON (JSON array) hợp lệ. KHÔNG thêm bất kỳ văn bản giải thích nào trước hoặc sau mảng JSON. KHÔNG sử dụng markdown (```json).\n\n");
+
+        prompt.append("Mỗi đối tượng trong mảng phải chứa chính xác các khóa sau:\n");
+        prompt.append("1. `headline1` (Tối đa 30 ký tự)\n");
+        prompt.append("2. `headline2` (Tối đa 30 ký tự)\n");
+        prompt.append("3. `description` (Tối đa 90 ký tự)");
+
+        return prompt.toString();
+    }
+
+    /**
+     * Build general prompt for other content types
+     */
+    private String buildGeneralPrompt(ContentGenerateRequest request) {
         StringBuilder prompt = new StringBuilder();
 
         // System instructions
@@ -509,8 +614,6 @@ public class GeminiProvider implements AIProvider {
             log.warn("Gemini prompt may be too long: {} estimated tokens", estimatedTokens);
         }
 
-        log.debug("Gemini request validated - estimated prompt tokens: {}, max response tokens: {}",
-                estimatedTokens, maxTokens);
     }
 
     /**
@@ -519,14 +622,17 @@ public class GeminiProvider implements AIProvider {
     private Map<String, Object> callGeminiApi(
             Map<String, Object> geminiRequest, N8nConfig geminiConfig) {
 
+        // Build Gemini API URL with API key as query parameter
+        String geminiUrl = geminiConfig.getAgentUrl() + geminiConfig.getModel() + ":generateContent?key="
+                + geminiConfig.getXApiKey();
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("x-goog-api-key", geminiConfig.getXApiKey());
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(geminiRequest, headers);
 
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                geminiConfig.getAgentUrl(),
+                geminiUrl,
                 HttpMethod.POST,
                 entity,
                 new ParameterizedTypeReference<Map<String, Object>>() {
@@ -536,7 +642,6 @@ public class GeminiProvider implements AIProvider {
         if (responseBody == null) {
             throw new BusinessException("Empty response from Gemini API");
         }
-
         return responseBody;
     }
 
@@ -592,8 +697,8 @@ public class GeminiProvider implements AIProvider {
                 return result;
             }
 
-            // Clean and process content
-            String cleanedContent = cleanGeneratedContent(generatedText);
+            // Process content based on type
+            String cleanedContent = processGeneratedContent(generatedText, responseBody);
 
             result.put("generatedContent", cleanedContent);
             result.put("wordCount", countWords(cleanedContent));
@@ -622,8 +727,12 @@ public class GeminiProvider implements AIProvider {
             result.put("processingTimeMs", System.currentTimeMillis() - startTime);
             result.put("status", ContentConstants.STATUS_COMPLETED);
 
-            log.debug("Successfully processed Gemini response - content length: {}, tokens used: {}",
-                    result.get("characterCount"), result.get("tokensUsed"));
+            // Extract Gemini response ID if available
+            String geminiResponseId = extractGeminiResponseId(responseBody);
+            if (geminiResponseId != null) {
+                result.put("geminiResponseId", geminiResponseId);
+                result.put("openaiResponseId", geminiResponseId); // For compatibility with existing system
+            }
 
         } catch (Exception e) {
             log.error("Error processing Gemini response", e);
@@ -683,8 +792,57 @@ public class GeminiProvider implements AIProvider {
             log.warn("Generated content has low quality score: {}", qualityScore);
         }
 
-        log.debug("Content validation passed - length: {}, quality score: {}",
-                content.length(), qualityScore);
+    }
+
+    /**
+     * Process generated content based on content type
+     */
+    private String processGeneratedContent(String content, Map<String, Object> responseBody) {
+        if (content == null)
+            return "";
+
+        // Check if this looks like JSON array response (for ads)
+        String trimmedContent = content.trim();
+        if (trimmedContent.startsWith("[") && trimmedContent.endsWith("]")) {
+            // Validate and clean JSON array response
+            return validateAndCleanJsonResponse(trimmedContent);
+        }
+
+        // Default cleaning for general content
+        return cleanGeneratedContent(content);
+    }
+
+    /**
+     * Validate and clean JSON array response for ad content
+     */
+    private String validateAndCleanJsonResponse(String jsonContent) {
+        try {
+            // Basic JSON validation - ensure it's a valid array structure
+            if (!jsonContent.matches("^\\s*\\[.*\\]\\s*$")) {
+                log.warn("Generated content is not a valid JSON array format");
+                return jsonContent; // Return as-is if not valid JSON
+            }
+
+            // Remove any markdown formatting that might have been added
+            String cleanedJson = jsonContent
+                    .replaceAll("```json\\s*", "")
+                    .replaceAll("```\\s*", "")
+                    .trim();
+
+            // Validate basic structure contains required fields
+            if (cleanedJson.contains("headline1") &&
+                    cleanedJson.contains("headline2") &&
+                    cleanedJson.contains("description")) {
+                return cleanedJson;
+            } else {
+                log.warn("JSON response missing required fields (headline1, headline2, description)");
+                return cleanedJson; // Return anyway, let frontend handle validation
+            }
+
+        } catch (Exception e) {
+            log.warn("Error validating JSON response: {}", e.getMessage());
+            return jsonContent; // Return original content if validation fails
+        }
     }
 
     private String cleanGeneratedContent(String content) {
@@ -836,6 +994,96 @@ public class GeminiProvider implements AIProvider {
         }
     }
 
+    /**
+     * Save Gemini response log to database
+     */
+    @Transactional
+    protected void saveGeminiResponseLogInTransaction(
+            User user, ContentGenerateRequest request, Map<String, Object> result, N8nConfig geminiConfig) {
+        try {
+            OpenaiResponseLog responseLog = new OpenaiResponseLog();
+            responseLog.setUser(user);
+
+            // Build request data for logging
+            Map<String, Object> requestData = new HashMap<>();
+            requestData.put("content", request.getContent());
+            requestData.put("contentType", request.getContentType());
+            requestData.put("tone", request.getTone());
+            requestData.put("language", request.getLanguage());
+            requestData.put("industry", request.getIndustry());
+            requestData.put("targetAudience", request.getTargetAudience());
+            requestData.put("title", request.getTitle());
+            requestData.put("provider", PROVIDER_NAME);
+
+            responseLog.setContentInput(requestData);
+            responseLog.setOpenaiResult(result);
+            responseLog.setCreateAt(Instant.now());
+            responseLog.setResponseTime(Instant.now());
+            responseLog.setModel(geminiConfig.getModel() != null ? geminiConfig.getModel() : "gemini-pro");
+
+            // Extract and save Gemini response ID
+            String geminiResponseId = (String) result.get("geminiResponseId");
+            if (geminiResponseId != null) {
+                responseLog.setOpenaiResponseId(geminiResponseId);
+            }
+
+            openaiResponseLogRepository.save(responseLog);
+
+        } catch (Exception e) {
+            log.error("Error saving Gemini response log for user: {}", user.getId(), e);
+            // Don't throw - avoid breaking main flow
+        }
+    }
+
+    /**
+     * Save Gemini error log to database
+     */
+    @Transactional
+    protected void saveGeminiErrorLogInTransaction(User user, String errorMessage, N8nConfig geminiConfig) {
+        try {
+            OpenaiResponseLog errorLog = new OpenaiResponseLog();
+            errorLog.setUser(user);
+            errorLog.setCreateAt(Instant.now());
+            errorLog.setResponseTime(Instant.now());
+            errorLog.setModel(
+                    geminiConfig != null && geminiConfig.getModel() != null ? geminiConfig.getModel() : "gemini-pro");
+
+            Map<String, Object> errorResult = new HashMap<>();
+            errorResult.put("error", errorMessage);
+            errorResult.put("provider", PROVIDER_NAME);
+            errorLog.setOpenaiResult(errorResult);
+
+            openaiResponseLogRepository.save(errorLog);
+
+        } catch (Exception e) {
+            log.error("Error saving Gemini error log for user: {}", user.getId(), e);
+            // Don't throw - avoid breaking main flow
+        }
+    }
+
+    /**
+     * Extract Gemini response ID from the response
+     */
+    private String extractGeminiResponseId(Map<String, Object> response) {
+        try {
+            // Extract 'responseId' field from Gemini response
+            Object responseIdObj = response.get("responseId");
+            if (responseIdObj != null) {
+                return responseIdObj.toString();
+            }
+
+            // Alternative: try to extract from modelVersion or other fields
+            Object modelVersion = response.get("modelVersion");
+            if (modelVersion != null) {
+                return "gemini_" + modelVersion.toString() + "_" + System.currentTimeMillis();
+            }
+            return null;
+        } catch (Exception e) {
+            log.warn("Error extracting Gemini response ID: {}", e.getMessage());
+            return null;
+        }
+    }
+
     private ContentGenerateResponse convertToResponse(Map<String, Object> result) {
         ContentGenerateResponse response = new ContentGenerateResponse();
 
@@ -867,6 +1115,11 @@ public class GeminiProvider implements AIProvider {
             } else if (cost instanceof BigDecimal) {
                 response.setGenerationCost((BigDecimal) cost);
             }
+        }
+
+        // Set Gemini response ID for compatibility
+        if (result.get("openaiResponseId") != null) {
+            response.setOpenaiResponseId((String) result.get("openaiResponseId"));
         }
 
         return response;

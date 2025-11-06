@@ -48,6 +48,9 @@ class ContentVersioningServiceTest {
         @Mock
         private AuditService auditService;
 
+        @Mock
+        private ai.content.auto.repository.UserRepository userRepository;
+
         @InjectMocks
         private ContentVersioningService contentVersioningService;
 
@@ -544,5 +547,45 @@ class ContentVersioningServiceTest {
                 assertThrows(BusinessException.class, () -> contentVersioningService.tagVersion(null, null, null));
                 assertThrows(BusinessException.class, () -> contentVersioningService.tagVersion(1L, null, null));
                 assertThrows(BusinessException.class, () -> contentVersioningService.tagVersion(1L, 1, null));
+        }
+
+        @Test
+        void testCreateVersionForUser_Success() {
+                // Given
+                Long userId = 1L;
+                when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
+                when(contentGenerationRepository.findById(1L)).thenReturn(Optional.of(testContent));
+                when(contentVersionRepository.getNextVersionNumber(1L)).thenReturn(1);
+                when(contentVersionRepository.save(any(ContentVersion.class))).thenReturn(testVersion);
+                when(contentVersionMapper.toDto(testVersion)).thenReturn(testVersionDto);
+
+                // When
+                ContentVersionDto result = contentVersioningService.createVersionForUser(1L, testResponse, userId);
+
+                // Then
+                assertNotNull(result);
+                assertEquals(testVersionDto, result);
+                verify(userRepository).findById(userId);
+                verify(contentGenerationRepository).findById(1L);
+                verify(contentVersionRepository).save(any(ContentVersion.class));
+                verify(contentGenerationRepository).save(any(ContentGeneration.class));
+        }
+
+        @Test
+        void testCreateVersionForUser_UserNotFound() {
+                // Given
+                Long userId = 999L;
+                when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+                // When & Then
+                assertThrows(BusinessException.class,
+                                () -> contentVersioningService.createVersionForUser(1L, testResponse, userId));
+        }
+
+        @Test
+        void testCreateVersionForUser_NullUserId() {
+                // When & Then
+                assertThrows(BusinessException.class,
+                                () -> contentVersioningService.createVersionForUser(1L, testResponse, null));
         }
 }

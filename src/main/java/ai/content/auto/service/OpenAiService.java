@@ -243,6 +243,13 @@ public class OpenAiService {
             responseLog.setResponseTime(Instant.now());
             responseLog.setModel(response.get("model").toString());
 
+            // Extract and save OpenAI response ID
+            String openaiResponseId = extractOpenAiResponseId(response);
+            if (openaiResponseId != null) {
+                responseLog.setOpenaiResponseId(openaiResponseId);
+                log.debug("Saved OpenAI response ID: {} for user: {}", openaiResponseId, user.getId());
+            }
+
             openaiResponseLogRepository.save(responseLog);
         } catch (Exception e) {
             log.error("Error saving OpenAI response log for user: {}", user.getId(), e);
@@ -754,6 +761,12 @@ public class OpenAiService {
 
             result.put("processingTimeMs", System.currentTimeMillis() - startTime);
 
+            // Extract and include OpenAI response ID
+            String openaiResponseId = extractOpenAiResponseId(responseBody);
+            if (openaiResponseId != null) {
+                result.put("openaiResponseId", openaiResponseId);
+            }
+
             // Set final status based on response completeness
             if (isCompleted) {
                 result.put("status", ContentConstants.STATUS_COMPLETED);
@@ -911,5 +924,30 @@ public class OpenAiService {
             return 0;
         }
         return text.trim().split("\\s+").length;
+    }
+
+    /**
+     * Extract OpenAI response ID from the response
+     */
+    private String extractOpenAiResponseId(Map<String, Object> response) {
+        try {
+            // Try to extract 'id' field from the response
+            Object idObj = response.get("id");
+            if (idObj != null) {
+                return idObj.toString();
+            }
+
+            // Alternative: try to extract from system_fingerprint or other fields
+            Object systemFingerprint = response.get("system_fingerprint");
+            if (systemFingerprint != null) {
+                return systemFingerprint.toString();
+            }
+
+            log.debug("No OpenAI response ID found in response");
+            return null;
+        } catch (Exception e) {
+            log.warn("Error extracting OpenAI response ID: {}", e.getMessage());
+            return null;
+        }
     }
 }

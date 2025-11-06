@@ -116,6 +116,11 @@ public final class ContentConstants {
     public static final String DESC_PRODUCT = "Mô tả sản phẩm (100-300 từ, tập trung vào lợi ích)";
     public static final String DESC_AD = "Nội dung quảng cáo (50-200 từ, thuyết phục mạnh)";
 
+    // ===== GOOGLE ADS SPECIFIC CONSTANTS =====
+    public static final int GOOGLE_ADS_HEADLINE_MAX_LENGTH = 30;
+    public static final int GOOGLE_ADS_DESCRIPTION_MAX_LENGTH = 90;
+    public static final int GOOGLE_ADS_VARIANTS_COUNT = 3;
+
     // ===== TONE DESCRIPTIONS =====
     public static final String DESC_TONE_PROFESSIONAL = "Chuyên nghiệp, trang trọng, đáng tin cậy";
     public static final String DESC_TONE_FRIENDLY = "Thân thiện, gần gũi, dễ tiếp cận";

@@ -35,6 +35,21 @@ public class ContentController {
                 return ResponseEntity.ok(baseResponse);
         }
 
+        @PostMapping("/generate-async")
+        public ResponseEntity<BaseResponse<ContentGenerateResponse>> generateContentAsync(
+                        @Valid @RequestBody ContentGenerateRequest request) {
+
+                log.info("Generating content asynchronously for content type: {}", request.getContentType());
+
+                ContentGenerateResponse response = contentService.generateContentAsync(request);
+
+                BaseResponse<ContentGenerateResponse> baseResponse = new BaseResponse<ContentGenerateResponse>()
+                                .setErrorMessage("Content generation started successfully")
+                                .setData(response);
+
+                return ResponseEntity.accepted().body(baseResponse);
+        }
+
         @PostMapping
         public ResponseEntity<BaseResponse<ContentGenerationDto>> saveContent(
                         @Valid @RequestBody ContentSaveRequest request) {

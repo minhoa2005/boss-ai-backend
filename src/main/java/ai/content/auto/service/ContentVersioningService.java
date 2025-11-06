@@ -12,6 +12,7 @@ import ai.content.auto.exception.InternalServerException;
 import ai.content.auto.mapper.ContentVersionMapper;
 import ai.content.auto.repository.ContentGenerationRepository;
 import ai.content.auto.repository.ContentVersionRepository;
+import ai.content.auto.repository.UserRepository;
 import ai.content.auto.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,7 @@ public class ContentVersioningService {
     private final ContentVersionMapper contentVersionMapper;
     private final SecurityUtil securityUtil;
     private final AuditService auditService;
+    private final UserRepository userRepository;
 
     // Configuration constants
     private static final int MAX_VERSIONS_PER_CONTENT = 50;
@@ -61,7 +63,7 @@ public class ContentVersioningService {
             // 1. Validate input
             validateCreateVersionInput(contentId, response);
 
-            // 2. Get current user
+            // 2. Get current user from security context
             User currentUser = securityUtil.getCurrentUser();
             log.info("Creating version for content: {} by user: {}", contentId, currentUser.getId());
 
@@ -85,6 +87,54 @@ public class ContentVersioningService {
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error creating version for content: {}", contentId, e);
+            throw new InternalServerException("Failed to create content version");
+        }
+    }
+
+    /**
+     * Create a new version from content generation response with explicit user ID.
+     * This method is used for background jobs where security context is not
+     * available.
+     * 
+     * @param contentId Content ID to create version for
+     * @param response  Content generation response
+     * @param userId    User ID who owns the content
+     * @return Created ContentVersionDto
+     */
+    public ContentVersionDto createVersionForUser(Long contentId, ContentGenerateResponse response, Long userId) {
+        try {
+            // 1. Validate input
+            validateCreateVersionInput(contentId, response);
+            if (userId == null) {
+                throw new BusinessException("User ID is required");
+            }
+
+            log.info("Creating version for content: {} by user: {} (background job)", contentId, userId);
+
+            // 2. Get user entity
+            User user = getUserById(userId);
+
+            // 3. Validate content ownership
+            validateContentOwnership(contentId, userId);
+
+            // 4. Create version in transaction
+            ContentVersion version = createVersionInTransaction(contentId, response, user);
+
+            // 5. Update main content record
+            updateContentToLatestVersionInTransaction(contentId, version);
+
+            // 6. Check and apply cleanup policies
+            applyCleanupPolicies(contentId);
+
+            log.info("Version {} created successfully for content: {} (background job)", version.getVersionNumber(),
+                    contentId);
+            return contentVersionMapper.toDto(version);
+
+        } catch (BusinessException e) {
+            log.error("Business error creating version for content: {} by user: {}", contentId, userId, e);
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error creating version for content: {} by user: {}", contentId, userId, e);
             throw new InternalServerException("Failed to create content version");
         }
     }
@@ -895,6 +945,11 @@ public class ContentVersioningService {
     }
 
     // Private helper methods
+
+    private User getUserById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException("User not found: " + userId));
+    }
 
     private boolean isLargeContent(String content) {
         return content != null && content.length() > LARGE_CONTENT_THRESHOLD;

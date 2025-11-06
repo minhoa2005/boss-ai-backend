@@ -312,6 +312,11 @@ public class OpenAIProvider implements AIProvider {
             }
         }
 
+        // Set OpenAI response ID
+        if (result.get("openaiResponseId") != null) {
+            response.setOpenaiResponseId((String) result.get("openaiResponseId"));
+        }
+
         return response;
     }
 }

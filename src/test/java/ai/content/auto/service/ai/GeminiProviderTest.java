@@ -225,4 +225,66 @@ class GeminiProviderTest {
         assertTrue(load >= 0.0 && load <= 1.0);
         assertEquals(0.5, load, 0.01); // 30/60 = 0.5
     }
+
+    @Test
+    void testExtractGeminiResponseId() {
+        // Test extracting responseId from Gemini API response
+        java.util.Map<String, Object> geminiResponse = new java.util.HashMap<>();
+        geminiResponse.put("responseId", "hVwMaezvNYm30-kPx_2TuAo");
+        geminiResponse.put("modelVersion", "gemini-2.5-flash");
+
+        // Use reflection to access private method for testing
+        try {
+            java.lang.reflect.Method extractMethod = GeminiProvider.class
+                    .getDeclaredMethod("extractGeminiResponseId", java.util.Map.class);
+            extractMethod.setAccessible(true);
+
+            String responseId = (String) extractMethod.invoke(geminiProvider, geminiResponse);
+
+            assertEquals("hVwMaezvNYm30-kPx_2TuAo", responseId);
+        } catch (Exception e) {
+            fail("Failed to test extractGeminiResponseId: " + e.getMessage());
+        }
+    }
+
+    @Test
+    void testExtractGeminiResponseId_WithFallback() {
+        // Test fallback when responseId is not present
+        java.util.Map<String, Object> geminiResponse = new java.util.HashMap<>();
+        geminiResponse.put("modelVersion", "gemini-2.5-flash");
+
+        // Use reflection to access private method for testing
+        try {
+            java.lang.reflect.Method extractMethod = GeminiProvider.class
+                    .getDeclaredMethod("extractGeminiResponseId", java.util.Map.class);
+            extractMethod.setAccessible(true);
+
+            String responseId = (String) extractMethod.invoke(geminiProvider, geminiResponse);
+
+            assertNotNull(responseId);
+            assertTrue(responseId.startsWith("gemini_gemini-2.5-flash_"));
+        } catch (Exception e) {
+            fail("Failed to test extractGeminiResponseId fallback: " + e.getMessage());
+        }
+    }
+
+    @Test
+    void testExtractGeminiResponseId_NoId() {
+        // Test when no responseId or modelVersion is present
+        java.util.Map<String, Object> geminiResponse = new java.util.HashMap<>();
+        geminiResponse.put("candidates", java.util.List.of());
+
+        // Use reflection to access private method for testing
+        try {
+            java.lang.reflect.Method extractMethod = GeminiProvider.class
+                    .getDeclaredMethod("extractGeminiResponseId", java.util.Map.class);
+            extractMethod.setAccessible(true);
+
+            String responseId = (String) extractMethod.invoke(geminiProvider, geminiResponse);
+
+            assertNull(responseId);
+        } catch (Exception e) {
+            fail("Failed to test extractGeminiResponseId with no ID: " + e.getMessage());
+        }
+    }
 }

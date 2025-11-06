@@ -38,6 +38,7 @@ public class ContentGenerationQueueService {
     private final ContentService contentService;
     private final QueueManagementService queueManagementService;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final WebSocketService webSocketService;
 
     @Value("${app.queue.processing-batch-size:10}")
     private int processingBatchSize;
@@ -52,9 +53,9 @@ public class ContentGenerationQueueService {
     private static final String JOB_PROCESSING_KEY = "queue:job:processing:";
 
     /**
-     * Process jobs from the queue (scheduled every 30 seconds)
+     * Process jobs from the queue (scheduled every 5 seconds for testing)
      */
-    @Scheduled(fixedDelay = 30000) // 30 seconds
+    @Scheduled(fixedDelay = 5000) // 5 seconds for faster testing
     public void processQueuedJobs() {
         try {
             // Acquire distributed lock to prevent multiple instances from processing
@@ -63,13 +64,13 @@ public class ContentGenerationQueueService {
                 return;
             }
 
-            log.debug("Starting queue processing cycle");
+            log.info("Starting queue processing cycle");
 
             // Get next batch of jobs to process
             List<GenerationJobDto> jobs = queueManagementService.getNextJobsToProcess(processingBatchSize);
 
             if (jobs.isEmpty()) {
-                log.debug("No jobs in queue to process");
+                log.info("No jobs in queue to process");
                 return;
             }
 
@@ -161,6 +162,7 @@ public class ContentGenerationQueueService {
     @Async("queueTaskExecutor")
     public CompletableFuture<Void> processJobAsync(GenerationJobDto jobDto) {
         String jobId = jobDto.getJobId();
+        Long userId = jobDto.getUserId();
 
         try {
             // Acquire job processing lock
@@ -170,6 +172,11 @@ public class ContentGenerationQueueService {
             }
 
             log.info("Starting processing job: {}", jobId);
+
+            // Send job started notification via WebSocket
+            webSocketService.sendJobStatusUpdate(jobId, "PROCESSING", Map.of(
+                    "message", "Content generation started",
+                    "progress", 10));
 
             // Update job status to processing
             if (!updateJobToProcessing(jobId)) {
@@ -183,9 +190,19 @@ public class ContentGenerationQueueService {
                 // Convert job parameters to content generation request
                 ContentGenerateRequest request = convertToContentRequest(jobDto);
 
+                // Send progress update
+                webSocketService.sendJobStatusUpdate(jobId, "PROCESSING", Map.of(
+                        "message", "Generating content with AI...",
+                        "progress", 30));
+
                 // Generate content using async method with explicit user context
                 // This avoids security context issues in scheduled tasks
-                ContentGenerateResponse response = contentService.generateContentForUser(request, jobDto.getUserId());
+                ContentGenerateResponse response = contentService.generateContentForUser(request, userId);
+
+                // Send progress update
+                webSocketService.sendJobStatusUpdate(jobId, "PROCESSING", Map.of(
+                        "message", "Finalizing content...",
+                        "progress", 80));
 
                 // Calculate processing time
                 long processingTime = Instant.now().toEpochMilli() - startTime.toEpochMilli();
@@ -193,10 +210,24 @@ public class ContentGenerationQueueService {
                 // Update job with successful result
                 updateJobToCompleted(jobId, response, processingTime);
 
+                // Send job completion notification via WebSocket
+                webSocketService.sendJobCompletionNotification(userId, jobId, true, Map.of(
+                        "contentId", response.getContentId(),
+                        "title", response.getTitle(),
+                        "generatedContent", response.getGeneratedContent(),
+                        "wordCount", response.getWordCount(),
+                        "processingTime", processingTime));
+
                 log.info("Job {} completed successfully in {}ms", jobId, processingTime);
 
             } catch (Exception e) {
                 log.error("Job {} failed during processing", jobId, e);
+
+                // Send job error notification via WebSocket
+                webSocketService.sendJobErrorNotification(userId, jobId,
+                        "Content generation failed: " + e.getMessage(), Map.of(
+                                "error", e.getMessage(),
+                                "jobId", jobId));
 
                 // Update job with failure
                 Instant nextRetryAt = calculateNextRetryTime(jobDto.getRetryCount());
@@ -205,6 +236,14 @@ public class ContentGenerationQueueService {
 
         } catch (Exception e) {
             log.error("Unexpected error processing job: {}", jobId, e);
+
+            // Send error notification if we have user ID
+            if (userId != null) {
+                webSocketService.sendJobErrorNotification(userId, jobId,
+                        "Unexpected error: " + e.getMessage(), Map.of(
+                                "error", e.getMessage(),
+                                "jobId", jobId));
+            }
         } finally {
             // Always release the job processing lock
             removeJobProcessingLock(jobId);

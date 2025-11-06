@@ -145,6 +145,24 @@ public class WebSocketController {
     }
 
     /**
+     * Test job status update (for debugging)
+     */
+    @PostMapping("/test/job/{jobId}/status")
+    public ResponseEntity<BaseResponse<Void>> testJobStatusUpdate(
+            @PathVariable String jobId,
+            @RequestBody TestJobStatusRequest request) {
+
+        log.info("Sending test job status update for job: {} - status: {}", jobId, request.getStatus());
+
+        webSocketService.sendJobStatusUpdate(jobId, request.getStatus(), request.getData());
+
+        BaseResponse<Void> response = new BaseResponse<Void>()
+                .setErrorMessage("Test job status update sent successfully");
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * System notification request DTO
      */
     public static class SystemNotificationRequest {
@@ -205,6 +223,30 @@ public class WebSocketController {
 
         public void setMessageType(String messageType) {
             this.messageType = messageType;
+        }
+
+        public Map<String, Object> getData() {
+            return data;
+        }
+
+        public void setData(Map<String, Object> data) {
+            this.data = data;
+        }
+    }
+
+    /**
+     * Test job status request DTO
+     */
+    public static class TestJobStatusRequest {
+        private String status;
+        private Map<String, Object> data;
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
         }
 
         public Map<String, Object> getData() {

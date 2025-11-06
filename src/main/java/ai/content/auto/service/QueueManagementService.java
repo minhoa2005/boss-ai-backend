@@ -36,6 +36,7 @@ public class QueueManagementService {
     private final GenerationJobMapper jobMapper;
     private final SecurityUtil securityUtil;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final WebSocketService webSocketService;
 
     @Value("${app.queue.max-concurrent-jobs:10000}")
     private int maxConcurrentJobs;
@@ -75,6 +76,14 @@ public class QueueManagementService {
             // Calculate queue position and estimated time
             Integer queuePosition = calculateQueuePosition(savedJob);
             Integer estimatedTime = calculateEstimatedProcessingTime(queuePosition);
+
+            // Send job queued notification via WebSocket
+            log.info("Sending WebSocket notification for job: {} to user: {}", savedJob.getJobId(), userId);
+            webSocketService.sendJobStatusUpdate(savedJob.getJobId(), "QUEUED", Map.of(
+                    "message", "Job queued successfully",
+                    "progress", 0,
+                    "queuePosition", queuePosition,
+                    "estimatedTime", estimatedTime));
 
             log.info("Job queued successfully: {} for user: {}", savedJob.getJobId(), userId);
 
@@ -163,6 +172,12 @@ public class QueueManagementService {
 
             // Update Redis counters
             decrementRedisCounters(userId, job.getPriority());
+
+            // Send job cancelled notification via WebSocket
+            webSocketService.sendJobErrorNotification(userId, jobId,
+                    "Job cancelled by user", Map.of(
+                            "reason", "user_cancelled",
+                            "cancelledAt", Instant.now().toString()));
 
             log.info("Job cancelled: {} by user: {}", jobId, userId);
 

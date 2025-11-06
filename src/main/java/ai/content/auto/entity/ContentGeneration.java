@@ -147,4 +147,8 @@ public class ContentGeneration {
   @ColumnDefault("1")
   @Column(name = "current_version")
   private Integer currentVersion;
+
+  @Size(max = 255)
+  @Column(name = "openai_response_id", length = 255)
+  private String openaiResponseId;
 }

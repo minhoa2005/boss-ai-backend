@@ -115,6 +115,10 @@ public class JobStatusWebSocketHandler implements WebSocketHandler {
                 case "ping":
                     handlePing(session, userId);
                     break;
+                case "pong":
+                    // Handle pong response from client (heartbeat response)
+                    log.debug("Received pong from user: {}", userId);
+                    break;
                 case "get_status":
                     handleStatusRequest(session, userId);
                     break;
@@ -174,6 +178,7 @@ public class JobStatusWebSocketHandler implements WebSocketHandler {
      */
     public void sendJobStatusUpdate(String jobId, Map<String, Object> statusUpdate) {
         Long userId = jobSubscriptions.get(jobId);
+        log.info("Attempting to send job status update for job: {} (subscribed user: {})", jobId, userId);
 
         if (userId != null) {
             WebSocketSession session = userSessions.get(userId);
@@ -187,7 +192,7 @@ public class JobStatusWebSocketHandler implements WebSocketHandler {
                             "data", statusUpdate);
 
                     sendMessage(session, message);
-                    log.debug("Sent job status update for job: {} to user: {}", jobId, userId);
+                    log.info("Successfully sent job status update for job: {} to user: {}", jobId, userId);
 
                 } catch (Exception e) {
                     log.error("Failed to send job status update for job: {} to user: {}", jobId, userId, e);
@@ -195,8 +200,15 @@ public class JobStatusWebSocketHandler implements WebSocketHandler {
                     cleanupJobSubscription(jobId, userId);
                 }
             } else {
+                log.warn("No active session for user: {} (job: {})", userId, jobId);
                 // Clean up stale subscription
                 cleanupJobSubscription(jobId, userId);
+            }
+        } else {
+            log.warn("No subscription found for job: {} (Total subscriptions: {})", jobId, jobSubscriptions.size());
+            // Log all current subscriptions for debugging
+            if (log.isDebugEnabled()) {
+                jobSubscriptions.forEach((jId, uId) -> log.debug("Active subscription: job={}, user={}", jId, uId));
             }
         }
     }
@@ -362,7 +374,7 @@ public class JobStatusWebSocketHandler implements WebSocketHandler {
     private void handleJobSubscription(Long userId, String jobId) {
         if (jobId != null && !jobId.trim().isEmpty()) {
             jobSubscriptions.put(jobId, userId);
-            log.debug("User {} subscribed to job: {}", userId, jobId);
+            log.info("User {} subscribed to job: {} (Total subscriptions: {})", userId, jobId, jobSubscriptions.size());
 
             // Send subscription confirmation
             WebSocketSession session = userSessions.get(userId);
@@ -372,6 +384,7 @@ public class JobStatusWebSocketHandler implements WebSocketHandler {
                             "type", "job_subscription_confirmed",
                             "jobId", jobId,
                             "timestamp", System.currentTimeMillis()));
+                    log.debug("Sent subscription confirmation for job: {} to user: {}", jobId, userId);
                 } catch (Exception e) {
                     log.error("Failed to send job subscription confirmation", e);
                 }

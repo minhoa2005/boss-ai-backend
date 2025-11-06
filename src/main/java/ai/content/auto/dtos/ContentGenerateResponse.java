@@ -21,6 +21,7 @@ public class ContentGenerateResponse {
     private Map<String, Object> generationParams;
     private String aiProvider;
     private String aiModel;
+    private String openaiResponseId;
 
     // Quality metrics
     private BigDecimal readabilityScore;
