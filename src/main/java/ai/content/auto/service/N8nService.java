@@ -38,7 +38,8 @@ public class N8nService {
             Map<String, Object> workflowRequest = buildWorkflowRequest(request, userId);
 
             // 3. Call N8N webhook
-            Map<String, Object> webhookResponse = callN8nWebhook(workflowRequest,String.valueOf(workflowRequest.get("n8n_url")));
+            Map<String, Object> webhookResponse = callN8nWebhook(workflowRequest,
+                    String.valueOf(workflowRequest.get("n8n_url")));
 
             // 4. Build result
             Map<String, Object> result = new HashMap<>();
@@ -75,7 +76,7 @@ public class N8nService {
         }
     }
 
-    private Map<String, Object> callN8nWebhook(Map<String, Object> workflowRequest,final String n8nUrl) {
+    private Map<String, Object> callN8nWebhook(Map<String, Object> workflowRequest, final String n8nUrl) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
@@ -109,14 +110,96 @@ public class N8nService {
         payload.put("avatar_id", avatarId);
         payload.put("contentId", contentId);
         payload.put("userId", userId);
-        payload.put("open_ai_url",n8nConfigDtos.stream().filter(x->x.getAgentName().equalsIgnoreCase("openai")).findFirst().get().getAgentUrl());
-        payload.put("open_ai_key",n8nConfigDtos.stream().filter(x->x.getAgentName().equalsIgnoreCase("openai")).findFirst().get().getXApiKey());
-        payload.put("open_ai_model",n8nConfigDtos.stream().filter(x->x.getAgentName().equalsIgnoreCase("openai")).findFirst().get().getModel());
-        payload.put("heygen_generate",n8nConfigDtos.stream().filter(x->x.getAgentName().equalsIgnoreCase("heygen-generate")).findFirst().get().getAgentUrl());
-        payload.put("heygen_video_status",n8nConfigDtos.stream().filter(x->x.getAgentName().equalsIgnoreCase("heygen-video_status")).findFirst().get().getAgentUrl());
-        payload.put("heygen_api_key",n8nConfigDtos.stream().filter(x->x.getAgentName().equalsIgnoreCase("heygen-generate")).findFirst().get().getXApiKey());
-        payload.put("n8n_url",n8nConfigDtos.stream().filter(x->x.getAgentName().equalsIgnoreCase("n8n")).findFirst().get().getAgentUrl());
+        payload.put("open_ai_url", n8nConfigDtos.stream().filter(x -> x.getAgentName().equalsIgnoreCase("openai"))
+                .findFirst().get().getAgentUrl());
+        payload.put("open_ai_key", n8nConfigDtos.stream().filter(x -> x.getAgentName().equalsIgnoreCase("openai"))
+                .findFirst().get().getXApiKey());
+        payload.put("open_ai_model", n8nConfigDtos.stream().filter(x -> x.getAgentName().equalsIgnoreCase("openai"))
+                .findFirst().get().getModel());
+        payload.put("heygen_generate", n8nConfigDtos.stream()
+                .filter(x -> x.getAgentName().equalsIgnoreCase("heygen-generate")).findFirst().get().getAgentUrl());
+        payload.put("heygen_video_status", n8nConfigDtos.stream()
+                .filter(x -> x.getAgentName().equalsIgnoreCase("heygen-video_status")).findFirst().get().getAgentUrl());
+        payload.put("heygen_api_key", n8nConfigDtos.stream()
+                .filter(x -> x.getAgentName().equalsIgnoreCase("heygen-generate")).findFirst().get().getXApiKey());
+        payload.put("n8n_url", n8nConfigDtos.stream().filter(x -> x.getAgentName().equalsIgnoreCase("n8n")).findFirst()
+                .get().getAgentUrl());
 
         return payload;
+    }
+
+    /**
+     * Generate video using N8N workflow with template and branding configuration
+     */
+    public Map<String, Object> generateVideo(String videoScript, String templateName,
+            Map<String, Object> brandingConfig,
+            Map<String, Object> generationParams) {
+        try {
+            log.info("Generating video with template: {}", templateName);
+
+            // Build video generation request
+            Map<String, Object> videoRequest = buildVideoGenerationRequest(
+                    videoScript, templateName, brandingConfig, generationParams);
+
+            // Get N8N configuration
+            List<N8nConfig> n8nConfigs = n8nConfigRepository.findAll();
+            String n8nUrl = n8nConfigs.stream()
+                    .filter(x -> x.getAgentName().equalsIgnoreCase("n8n"))
+                    .findFirst()
+                    .map(N8nConfig::getAgentUrl)
+                    .orElseThrow(() -> new BusinessException("N8N configuration not found"));
+
+            // Call N8N webhook for video generation
+            Map<String, Object> webhookResponse = callN8nWebhook(videoRequest, n8nUrl);
+
+            // Extract video information from response
+            Map<String, Object> result = new HashMap<>();
+            result.put("videoUrl", webhookResponse.getOrDefault("video_url", ""));
+            result.put("thumbnailUrl", webhookResponse.getOrDefault("thumbnail_url", ""));
+            result.put("videoSize", webhookResponse.getOrDefault("video_size", 0));
+            result.put("videoFormat", webhookResponse.getOrDefault("video_format", "mp4"));
+            result.put("status", "SUCCESS");
+
+            log.info("Video generation completed successfully");
+            return result;
+
+        } catch (BusinessException e) {
+            log.error("Business error generating video", e);
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error generating video", e);
+            throw new BusinessException("Failed to generate video: " + e.getMessage());
+        }
+    }
+
+    private Map<String, Object> buildVideoGenerationRequest(String videoScript, String templateName,
+            Map<String, Object> brandingConfig,
+            Map<String, Object> generationParams) {
+        List<N8nConfig> n8nConfigs = n8nConfigRepository.findAll();
+
+        Map<String, Object> request = new HashMap<>();
+        request.put("video_script", videoScript);
+        request.put("template_name", templateName);
+        request.put("branding_config", brandingConfig != null ? brandingConfig : new HashMap<>());
+        request.put("generation_params", generationParams != null ? generationParams : new HashMap<>());
+
+        // Add N8N configuration
+        request.put("heygen_generate", n8nConfigs.stream()
+                .filter(x -> x.getAgentName().equalsIgnoreCase("heygen-generate"))
+                .findFirst()
+                .map(N8nConfig::getAgentUrl)
+                .orElse(""));
+        request.put("heygen_video_status", n8nConfigs.stream()
+                .filter(x -> x.getAgentName().equalsIgnoreCase("heygen-video_status"))
+                .findFirst()
+                .map(N8nConfig::getAgentUrl)
+                .orElse(""));
+        request.put("heygen_api_key", n8nConfigs.stream()
+                .filter(x -> x.getAgentName().equalsIgnoreCase("heygen-generate"))
+                .findFirst()
+                .map(N8nConfig::getXApiKey)
+                .orElse(""));
+
+        return request;
     }
 }

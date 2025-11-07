@@ -133,11 +133,12 @@ public interface ContentTemplateRepository extends JpaRepository<ContentTemplate
 
         /**
          * Find templates with tags
+         * Using native query because JPQL MEMBER OF doesn't work well with array types
          */
-        @Query("SELECT ct FROM ContentTemplate ct WHERE " +
-                        ":tag MEMBER OF ct.tags AND " +
+        @Query(value = "SELECT * FROM content_templates ct WHERE " +
+                        ":tag = ANY(ct.tags) AND " +
                         "ct.status = 'ACTIVE' AND " +
-                        "(ct.visibility = 'PUBLIC' OR ct.createdBy.id = :userId)")
+                        "(ct.visibility = 'PUBLIC' OR ct.created_by = :userId)", nativeQuery = true)
         List<ContentTemplate> findByTag(@Param("tag") String tag, @Param("userId") Long userId);
 
         /**
