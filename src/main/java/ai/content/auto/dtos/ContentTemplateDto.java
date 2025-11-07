@@ -14,6 +14,9 @@ public class ContentTemplateDto {
     private String name;
     private String description;
     private String category;
+    private Long categoryId;
+    private String categoryName;
+    private String categorySlug;
     private String promptTemplate;
     private Map<String, Object> defaultParams;
     private String industry;

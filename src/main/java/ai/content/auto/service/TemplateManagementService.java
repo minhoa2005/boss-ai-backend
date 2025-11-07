@@ -40,6 +40,8 @@ public class TemplateManagementService {
     private final UserPresetMapper presetMapper;
     private final TemplateUsageLogMapper usageLogMapper;
     private final SecurityUtil securityUtil;
+    private final TemplateCategorizationService categorizationService;
+    private final TemplatePopularityService popularityService;
 
     // ================================
     // TEMPLATE MANAGEMENT METHODS
@@ -61,6 +63,31 @@ public class TemplateManagementService {
                     category, industry, getCurrentUserId(), e);
             throw new BusinessException("Failed to fetch templates");
         }
+    }
+
+    /**
+     * Get templates by tag
+     */
+    public List<ContentTemplateDto> getTemplatesByTag(String tag) {
+        try {
+            Long userId = getCurrentUserId();
+            log.info("Fetching templates by tag: {} for user: {}", tag, userId);
+
+            return getTemplatesByTagInTransaction(tag, userId);
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error fetching templates by tag: {} for user: {}", tag, getCurrentUserId(), e);
+            throw new BusinessException("Failed to fetch templates by tag");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    private List<ContentTemplateDto> getTemplatesByTagInTransaction(String tag, Long userId) {
+        List<ContentTemplate> templates = templateRepository.findByTag(tag, userId);
+        return templates.stream()
+                .map(templateMapper::toDto)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -132,6 +159,14 @@ public class TemplateManagementService {
     @Transactional
     private ContentTemplateDto createTemplateInTransaction(CreateTemplateRequest request, User currentUser) {
         ContentTemplate template = templateMapper.toEntity(request, currentUser);
+
+        // Process tags if provided
+        if (request.getTags() != null && !request.getTags().isEmpty()) {
+            // Create or get existing tags and update their usage count
+            List<TemplateTagDto> tags = categorizationService.getOrCreateTags(request.getTags());
+            // The tags are already processed and saved by the categorization service
+        }
+
         ContentTemplate savedTemplate = templateRepository.save(template);
 
         log.info("Template created successfully: {} with ID: {}", savedTemplate.getName(), savedTemplate.getId());
@@ -520,9 +555,38 @@ public class TemplateManagementService {
             usageLogRepository.save(usageLog);
 
             log.debug("Template usage recorded for template: {} by user: {}", template.getId(), userId);
+
+            // Update template metrics asynchronously (every 10 uses)
+            if (template.getUsageCount() % 10 == 0) {
+                try {
+                    popularityService.updateTemplateMetrics(template.getId());
+                } catch (Exception e) {
+                    log.warn("Failed to update template metrics after usage: {}", template.getId(), e);
+                }
+            }
         } catch (Exception e) {
             log.error("Failed to record template usage for template: {} by user: {}", template.getId(), userId, e);
             // Don't throw exception to avoid breaking the main flow
+        }
+    }
+
+    /**
+     * Get template analytics and performance data
+     */
+    public TemplatePerformanceSummary getTemplateAnalytics(Long templateId) {
+        try {
+            Long userId = getCurrentUserId();
+            log.info("Fetching template analytics for template: {} by user: {}", templateId, userId);
+
+            // Verify user has access to this template
+            getTemplateByIdInTransaction(templateId, userId);
+
+            return popularityService.getTemplatePerformance(templateId);
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error fetching template analytics for template: {}", templateId, e);
+            throw new BusinessException("Failed to fetch template analytics");
         }
     }
 

@@ -14,119 +14,151 @@ import java.util.List;
 @Repository
 public interface TemplateUsageLogRepository extends JpaRepository<TemplateUsageLog, Long> {
 
-    /**
-     * Find usage logs by template ID
-     */
-    @Query("SELECT tul FROM TemplateUsageLog tul WHERE tul.template.id = :templateId ORDER BY tul.usedAt DESC")
-    Page<TemplateUsageLog> findByTemplateId(@Param("templateId") Long templateId, Pageable pageable);
+        /**
+         * Find usage logs by template ID
+         */
+        @Query("SELECT tul FROM TemplateUsageLog tul WHERE tul.template.id = :templateId ORDER BY tul.usedAt DESC")
+        Page<TemplateUsageLog> findByTemplateId(@Param("templateId") Long templateId, Pageable pageable);
 
-    /**
-     * Find usage logs by user ID
-     */
-    @Query("SELECT tul FROM TemplateUsageLog tul WHERE tul.user.id = :userId ORDER BY tul.usedAt DESC")
-    Page<TemplateUsageLog> findByUserId(@Param("userId") Long userId, Pageable pageable);
+        /**
+         * Find usage logs by user ID
+         */
+        @Query("SELECT tul FROM TemplateUsageLog tul WHERE tul.user.id = :userId ORDER BY tul.usedAt DESC")
+        Page<TemplateUsageLog> findByUserId(@Param("userId") Long userId, Pageable pageable);
 
-    /**
-     * Find usage logs by template and user
-     */
-    @Query("SELECT tul FROM TemplateUsageLog tul WHERE " +
-            "tul.template.id = :templateId AND " +
-            "tul.user.id = :userId " +
-            "ORDER BY tul.usedAt DESC")
-    List<TemplateUsageLog> findByTemplateIdAndUserId(@Param("templateId") Long templateId,
-            @Param("userId") Long userId);
+        /**
+         * Find usage logs by template and user
+         */
+        @Query("SELECT tul FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.user.id = :userId " +
+                        "ORDER BY tul.usedAt DESC")
+        List<TemplateUsageLog> findByTemplateIdAndUserId(@Param("templateId") Long templateId,
+                        @Param("userId") Long userId);
 
-    /**
-     * Count usage by template in date range
-     */
-    @Query("SELECT COUNT(tul) FROM TemplateUsageLog tul WHERE " +
-            "tul.template.id = :templateId AND " +
-            "tul.usedAt BETWEEN :startDate AND :endDate")
-    Long countUsageByTemplateInDateRange(
-            @Param("templateId") Long templateId,
-            @Param("startDate") OffsetDateTime startDate,
-            @Param("endDate") OffsetDateTime endDate);
+        /**
+         * Count usage by template in date range
+         */
+        @Query("SELECT COUNT(tul) FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.usedAt BETWEEN :startDate AND :endDate")
+        Long countUsageByTemplateInDateRange(
+                        @Param("templateId") Long templateId,
+                        @Param("startDate") OffsetDateTime startDate,
+                        @Param("endDate") OffsetDateTime endDate);
 
-    /**
-     * Get average generation time for template
-     */
-    @Query("SELECT AVG(tul.generationTimeMs) FROM TemplateUsageLog tul WHERE " +
-            "tul.template.id = :templateId AND " +
-            "tul.generationTimeMs IS NOT NULL")
-    Double getAverageGenerationTimeByTemplate(@Param("templateId") Long templateId);
+        /**
+         * Get average generation time for template
+         */
+        @Query("SELECT AVG(tul.generationTimeMs) FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.generationTimeMs IS NOT NULL")
+        Double getAverageGenerationTimeByTemplate(@Param("templateId") Long templateId);
 
-    /**
-     * Get average quality score for template
-     */
-    @Query("SELECT AVG(tul.qualityScore) FROM TemplateUsageLog tul WHERE " +
-            "tul.template.id = :templateId AND " +
-            "tul.qualityScore IS NOT NULL")
-    Double getAverageQualityScoreByTemplate(@Param("templateId") Long templateId);
+        /**
+         * Get average quality score for template
+         */
+        @Query("SELECT AVG(tul.qualityScore) FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.qualityScore IS NOT NULL")
+        Double getAverageQualityScoreByTemplate(@Param("templateId") Long templateId);
 
-    /**
-     * Get success rate for template
-     */
-    @Query("SELECT " +
-            "CAST(SUM(CASE WHEN tul.wasSuccessful = true THEN 1 ELSE 0 END) AS double) / COUNT(tul) * 100 " +
-            "FROM TemplateUsageLog tul WHERE " +
-            "tul.template.id = :templateId AND " +
-            "tul.wasSuccessful IS NOT NULL")
-    Double getSuccessRateByTemplate(@Param("templateId") Long templateId);
+        /**
+         * Get success rate for template
+         */
+        @Query("SELECT " +
+                        "CAST(SUM(CASE WHEN tul.wasSuccessful = true THEN 1 ELSE 0 END) AS double) / COUNT(tul) * 100 "
+                        +
+                        "FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.wasSuccessful IS NOT NULL")
+        Double getSuccessRateByTemplate(@Param("templateId") Long templateId);
 
-    /**
-     * Find most popular templates by usage count
-     */
-    @Query("SELECT tul.template.id, COUNT(tul) as usageCount FROM TemplateUsageLog tul " +
-            "WHERE tul.usedAt >= :startDate " +
-            "GROUP BY tul.template.id " +
-            "ORDER BY usageCount DESC")
-    List<Object[]> findMostPopularTemplates(@Param("startDate") OffsetDateTime startDate, Pageable pageable);
+        /**
+         * Find most popular templates by usage count
+         */
+        @Query("SELECT tul.template.id, COUNT(tul) as usageCount FROM TemplateUsageLog tul " +
+                        "WHERE tul.usedAt >= :startDate " +
+                        "GROUP BY tul.template.id " +
+                        "ORDER BY usageCount DESC")
+        List<Object[]> findMostPopularTemplates(@Param("startDate") OffsetDateTime startDate, Pageable pageable);
 
-    /**
-     * Find usage statistics by user in date range
-     */
-    @Query("SELECT " +
-            "COUNT(tul) as totalUsage, " +
-            "AVG(tul.generationTimeMs) as avgGenerationTime, " +
-            "AVG(tul.qualityScore) as avgQualityScore, " +
-            "SUM(tul.generationCost) as totalCost " +
-            "FROM TemplateUsageLog tul WHERE " +
-            "tul.user.id = :userId AND " +
-            "tul.usedAt BETWEEN :startDate AND :endDate")
-    Object[] getUserUsageStatistics(
-            @Param("userId") Long userId,
-            @Param("startDate") OffsetDateTime startDate,
-            @Param("endDate") OffsetDateTime endDate);
+        /**
+         * Find usage statistics by user in date range
+         */
+        @Query("SELECT " +
+                        "COUNT(tul) as totalUsage, " +
+                        "AVG(tul.generationTimeMs) as avgGenerationTime, " +
+                        "AVG(tul.qualityScore) as avgQualityScore, " +
+                        "SUM(tul.generationCost) as totalCost " +
+                        "FROM TemplateUsageLog tul WHERE " +
+                        "tul.user.id = :userId AND " +
+                        "tul.usedAt BETWEEN :startDate AND :endDate")
+        Object[] getUserUsageStatistics(
+                        @Param("userId") Long userId,
+                        @Param("startDate") OffsetDateTime startDate,
+                        @Param("endDate") OffsetDateTime endDate);
 
-    /**
-     * Find recent usage logs for analytics
-     */
-    @Query("SELECT tul FROM TemplateUsageLog tul WHERE " +
-            "tul.usedAt >= :startDate " +
-            "ORDER BY tul.usedAt DESC")
-    List<TemplateUsageLog> findRecentUsage(@Param("startDate") OffsetDateTime startDate);
+        /**
+         * Find recent usage logs for analytics
+         */
+        @Query("SELECT tul FROM TemplateUsageLog tul WHERE " +
+                        "tul.usedAt >= :startDate " +
+                        "ORDER BY tul.usedAt DESC")
+        List<TemplateUsageLog> findRecentUsage(@Param("startDate") OffsetDateTime startDate);
 
-    /**
-     * Find failed usage attempts for troubleshooting
-     */
-    @Query("SELECT tul FROM TemplateUsageLog tul WHERE " +
-            "tul.wasSuccessful = false AND " +
-            "tul.usedAt >= :startDate " +
-            "ORDER BY tul.usedAt DESC")
-    List<TemplateUsageLog> findFailedUsage(@Param("startDate") OffsetDateTime startDate);
+        /**
+         * Find failed usage attempts for troubleshooting
+         */
+        @Query("SELECT tul FROM TemplateUsageLog tul WHERE " +
+                        "tul.wasSuccessful = false AND " +
+                        "tul.usedAt >= :startDate " +
+                        "ORDER BY tul.usedAt DESC")
+        List<TemplateUsageLog> findFailedUsage(@Param("startDate") OffsetDateTime startDate);
 
-    /**
-     * Get template usage trends by day
-     */
-    @Query("SELECT " +
-            "DATE(tul.usedAt) as usageDate, " +
-            "COUNT(tul) as usageCount " +
-            "FROM TemplateUsageLog tul WHERE " +
-            "tul.template.id = :templateId AND " +
-            "tul.usedAt >= :startDate " +
-            "GROUP BY DATE(tul.usedAt) " +
-            "ORDER BY usageDate")
-    List<Object[]> getUsageTrendsByTemplate(
-            @Param("templateId") Long templateId,
-            @Param("startDate") OffsetDateTime startDate);
+        /**
+         * Get template usage trends by day
+         */
+        @Query("SELECT " +
+                        "DATE(tul.usedAt) as usageDate, " +
+                        "COUNT(tul) as usageCount " +
+                        "FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.usedAt >= :startDate " +
+                        "GROUP BY DATE(tul.usedAt) " +
+                        "ORDER BY usageDate")
+        List<Object[]> getUsageTrendsByTemplate(
+                        @Param("templateId") Long templateId,
+                        @Param("startDate") OffsetDateTime startDate);
+
+        /**
+         * Find usage logs by user ID and date range
+         */
+        @Query("SELECT tul FROM TemplateUsageLog tul WHERE " +
+                        "tul.user.id = :userId AND " +
+                        "tul.usedAt >= :since " +
+                        "ORDER BY tul.usedAt DESC")
+        List<TemplateUsageLog> findByUserIdAndUsedAtAfter(
+                        @Param("userId") Long userId,
+                        @Param("since") OffsetDateTime since);
+
+        /**
+         * Find usage logs after a specific date
+         */
+        @Query("SELECT tul FROM TemplateUsageLog tul WHERE " +
+                        "tul.usedAt >= :since " +
+                        "ORDER BY tul.usedAt DESC")
+        List<TemplateUsageLog> findByUsedAtAfter(@Param("since") OffsetDateTime since);
+
+        /**
+         * Count successful usages by template and user list
+         */
+        @Query("SELECT COUNT(tul) FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.user.id IN :userIds AND " +
+                        "tul.wasSuccessful = :wasSuccessful")
+        Long countByTemplateIdAndUserIdInAndWasSuccessful(
+                        @Param("templateId") Long templateId,
+                        @Param("userIds") List<Long> userIds,
+                        @Param("wasSuccessful") Boolean wasSuccessful);
 }

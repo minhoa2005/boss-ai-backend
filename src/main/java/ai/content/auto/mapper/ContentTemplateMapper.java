@@ -4,6 +4,7 @@ import ai.content.auto.dtos.ContentTemplateDto;
 import ai.content.auto.dtos.CreateTemplateRequest;
 import ai.content.auto.dtos.UpdateTemplateRequest;
 import ai.content.auto.entity.ContentTemplate;
+import ai.content.auto.entity.TemplateCategory;
 import ai.content.auto.entity.User;
 import org.springframework.stereotype.Component;
 
@@ -48,6 +49,13 @@ public class ContentTemplateMapper {
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
         dto.setVersion(entity.getVersion());
+
+        // Map category information
+        if (entity.getTemplateCategory() != null) {
+            dto.setCategoryId(entity.getTemplateCategory().getId());
+            dto.setCategoryName(entity.getTemplateCategory().getName());
+            dto.setCategorySlug(entity.getTemplateCategory().getSlug());
+        }
 
         // Map user information
         if (entity.getCreatedBy() != null) {

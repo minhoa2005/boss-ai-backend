@@ -38,6 +38,10 @@ public class ContentTemplate {
   @Column(name = "category", nullable = false, length = 100)
   private String category;
 
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "category_id")
+  private TemplateCategory templateCategory;
+
   @NotNull
   @Column(name = "prompt_template", nullable = false, length = Integer.MAX_VALUE)
   private String promptTemplate;

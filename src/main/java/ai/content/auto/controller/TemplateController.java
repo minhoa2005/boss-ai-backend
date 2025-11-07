@@ -19,166 +19,185 @@ import java.util.Map;
 @Slf4j
 public class TemplateController {
 
-    private final TemplateManagementService templateManagementService;
+        private final TemplateManagementService templateManagementService;
 
-    /**
-     * Get templates by category and industry
-     */
-    @GetMapping
-    public ResponseEntity<BaseResponse<List<ContentTemplateDto>>> getTemplates(
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) String industry) {
+        /**
+         * Get templates by category and industry
+         */
+        @GetMapping
+        public ResponseEntity<BaseResponse<List<ContentTemplateDto>>> getTemplates(
+                        @RequestParam(required = false) String category,
+                        @RequestParam(required = false) String industry) {
 
-        log.info("Getting templates by category: {} and industry: {}", category, industry);
+                log.info("Getting templates by category: {} and industry: {}", category, industry);
 
-        List<ContentTemplateDto> templates = templateManagementService.getTemplatesByCategory(category, industry);
+                List<ContentTemplateDto> templates = templateManagementService.getTemplatesByCategory(category,
+                                industry);
 
-        BaseResponse<List<ContentTemplateDto>> response = new BaseResponse<List<ContentTemplateDto>>()
-                .setErrorMessage("Templates retrieved successfully")
-                .setData(templates);
+                BaseResponse<List<ContentTemplateDto>> response = new BaseResponse<List<ContentTemplateDto>>()
+                                .setErrorMessage("Templates retrieved successfully")
+                                .setData(templates);
 
-        return ResponseEntity.ok(response);
-    }
+                return ResponseEntity.ok(response);
+        }
 
-    /**
-     * Get recommended templates
-     */
-    @GetMapping("/recommended")
-    public ResponseEntity<BaseResponse<List<ContentTemplateDto>>> getRecommendedTemplates() {
+        /**
+         * Get recommended templates
+         */
+        @GetMapping("/recommended")
+        public ResponseEntity<BaseResponse<List<ContentTemplateDto>>> getRecommendedTemplates() {
 
-        log.info("Getting recommended templates");
+                log.info("Getting recommended templates");
 
-        List<ContentTemplateDto> templates = templateManagementService.getRecommendedTemplates();
+                List<ContentTemplateDto> templates = templateManagementService.getRecommendedTemplates();
 
-        BaseResponse<List<ContentTemplateDto>> response = new BaseResponse<List<ContentTemplateDto>>()
-                .setErrorMessage("Recommended templates retrieved successfully")
-                .setData(templates);
+                BaseResponse<List<ContentTemplateDto>> response = new BaseResponse<List<ContentTemplateDto>>()
+                                .setErrorMessage("Recommended templates retrieved successfully")
+                                .setData(templates);
 
-        return ResponseEntity.ok(response);
-    }
+                return ResponseEntity.ok(response);
+        }
 
-    /**
-     * Get featured templates
-     */
-    @GetMapping("/featured")
-    public ResponseEntity<BaseResponse<List<ContentTemplateDto>>> getFeaturedTemplates() {
+        /**
+         * Get featured templates
+         */
+        @GetMapping("/featured")
+        public ResponseEntity<BaseResponse<List<ContentTemplateDto>>> getFeaturedTemplates() {
 
-        log.info("Getting featured templates");
+                log.info("Getting featured templates");
 
-        List<ContentTemplateDto> templates = templateManagementService.getFeaturedTemplates();
+                List<ContentTemplateDto> templates = templateManagementService.getFeaturedTemplates();
 
-        BaseResponse<List<ContentTemplateDto>> response = new BaseResponse<List<ContentTemplateDto>>()
-                .setErrorMessage("Featured templates retrieved successfully")
-                .setData(templates);
+                BaseResponse<List<ContentTemplateDto>> response = new BaseResponse<List<ContentTemplateDto>>()
+                                .setErrorMessage("Featured templates retrieved successfully")
+                                .setData(templates);
 
-        return ResponseEntity.ok(response);
-    }
+                return ResponseEntity.ok(response);
+        }
 
-    /**
-     * Get popular templates with pagination
-     */
-    @GetMapping("/popular")
-    public ResponseEntity<BaseResponse<Page<ContentTemplateDto>>> getPopularTemplates(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+        /**
+         * Get popular templates with pagination
+         */
+        @GetMapping("/popular")
+        public ResponseEntity<BaseResponse<Page<ContentTemplateDto>>> getPopularTemplates(
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "10") int size) {
 
-        log.info("Getting popular templates (page: {}, size: {})", page, size);
+                log.info("Getting popular templates (page: {}, size: {})", page, size);
 
-        Page<ContentTemplateDto> templates = templateManagementService.getPopularTemplates(page, size);
+                Page<ContentTemplateDto> templates = templateManagementService.getPopularTemplates(page, size);
 
-        BaseResponse<Page<ContentTemplateDto>> response = new BaseResponse<Page<ContentTemplateDto>>()
-                .setErrorMessage("Popular templates retrieved successfully")
-                .setData(templates);
+                BaseResponse<Page<ContentTemplateDto>> response = new BaseResponse<Page<ContentTemplateDto>>()
+                                .setErrorMessage("Popular templates retrieved successfully")
+                                .setData(templates);
 
-        return ResponseEntity.ok(response);
-    }
+                return ResponseEntity.ok(response);
+        }
 
-    /**
-     * Get template by ID
-     */
-    @GetMapping("/{id}")
-    public ResponseEntity<BaseResponse<ContentTemplateDto>> getTemplateById(@PathVariable Long id) {
+        /**
+         * Get template by ID
+         */
+        @GetMapping("/{id}")
+        public ResponseEntity<BaseResponse<ContentTemplateDto>> getTemplateById(@PathVariable Long id) {
 
-        log.info("Getting template by ID: {}", id);
+                log.info("Getting template by ID: {}", id);
 
-        ContentTemplateDto template = templateManagementService.getTemplateById(id);
+                ContentTemplateDto template = templateManagementService.getTemplateById(id);
 
-        BaseResponse<ContentTemplateDto> response = new BaseResponse<ContentTemplateDto>()
-                .setErrorMessage("Template retrieved successfully")
-                .setData(template);
+                BaseResponse<ContentTemplateDto> response = new BaseResponse<ContentTemplateDto>()
+                                .setErrorMessage("Template retrieved successfully")
+                                .setData(template);
 
-        return ResponseEntity.ok(response);
-    }
+                return ResponseEntity.ok(response);
+        }
 
-    /**
-     * Create a new template
-     */
-    @PostMapping
-    public ResponseEntity<BaseResponse<ContentTemplateDto>> createTemplate(
-            @Valid @RequestBody CreateTemplateRequest request) {
+        /**
+         * Create a new template
+         */
+        @PostMapping
+        public ResponseEntity<BaseResponse<ContentTemplateDto>> createTemplate(
+                        @Valid @RequestBody CreateTemplateRequest request) {
 
-        log.info("Creating template: {}", request.getName());
+                log.info("Creating template: {}", request.getName());
 
-        ContentTemplateDto template = templateManagementService.createTemplate(request);
+                ContentTemplateDto template = templateManagementService.createTemplate(request);
 
-        BaseResponse<ContentTemplateDto> response = new BaseResponse<ContentTemplateDto>()
-                .setErrorMessage("Template created successfully")
-                .setData(template);
+                BaseResponse<ContentTemplateDto> response = new BaseResponse<ContentTemplateDto>()
+                                .setErrorMessage("Template created successfully")
+                                .setData(template);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
+                return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        }
 
-    /**
-     * Update an existing template
-     */
-    @PutMapping("/{id}")
-    public ResponseEntity<BaseResponse<ContentTemplateDto>> updateTemplate(
-            @PathVariable Long id,
-            @Valid @RequestBody UpdateTemplateRequest request) {
+        /**
+         * Update an existing template
+         */
+        @PutMapping("/{id}")
+        public ResponseEntity<BaseResponse<ContentTemplateDto>> updateTemplate(
+                        @PathVariable Long id,
+                        @Valid @RequestBody UpdateTemplateRequest request) {
 
-        log.info("Updating template: {}", id);
+                log.info("Updating template: {}", id);
 
-        ContentTemplateDto template = templateManagementService.updateTemplate(id, request);
+                ContentTemplateDto template = templateManagementService.updateTemplate(id, request);
 
-        BaseResponse<ContentTemplateDto> response = new BaseResponse<ContentTemplateDto>()
-                .setErrorMessage("Template updated successfully")
-                .setData(template);
+                BaseResponse<ContentTemplateDto> response = new BaseResponse<ContentTemplateDto>()
+                                .setErrorMessage("Template updated successfully")
+                                .setData(template);
 
-        return ResponseEntity.ok(response);
-    }
+                return ResponseEntity.ok(response);
+        }
 
-    /**
-     * Delete a template
-     */
-    @DeleteMapping("/{id}")
-    public ResponseEntity<BaseResponse<Void>> deleteTemplate(@PathVariable Long id) {
+        /**
+         * Delete a template
+         */
+        @DeleteMapping("/{id}")
+        public ResponseEntity<BaseResponse<Void>> deleteTemplate(@PathVariable Long id) {
 
-        log.info("Deleting template: {}", id);
+                log.info("Deleting template: {}", id);
 
-        templateManagementService.deleteTemplate(id);
+                templateManagementService.deleteTemplate(id);
 
-        BaseResponse<Void> response = new BaseResponse<Void>()
-                .setErrorMessage("Template deleted successfully");
+                BaseResponse<Void> response = new BaseResponse<Void>()
+                                .setErrorMessage("Template deleted successfully");
 
-        return ResponseEntity.ok(response);
-    }
+                return ResponseEntity.ok(response);
+        }
 
-    /**
-     * Apply template to generate content request
-     */
-    @PostMapping("/{id}/apply")
-    public ResponseEntity<BaseResponse<ContentGenerateRequest>> applyTemplate(
-            @PathVariable Long id,
-            @RequestBody(required = false) Map<String, Object> customParams) {
+        /**
+         * Apply template to generate content request
+         */
+        @PostMapping("/{id}/apply")
+        public ResponseEntity<BaseResponse<ContentGenerateRequest>> applyTemplate(
+                        @PathVariable Long id,
+                        @RequestBody(required = false) Map<String, Object> customParams) {
 
-        log.info("Applying template: {} with custom params", id);
+                log.info("Applying template: {} with custom params", id);
 
-        ContentGenerateRequest request = templateManagementService.applyTemplate(id, customParams);
+                ContentGenerateRequest request = templateManagementService.applyTemplate(id, customParams);
 
-        BaseResponse<ContentGenerateRequest> response = new BaseResponse<ContentGenerateRequest>()
-                .setErrorMessage("Template applied successfully")
-                .setData(request);
+                BaseResponse<ContentGenerateRequest> response = new BaseResponse<ContentGenerateRequest>()
+                                .setErrorMessage("Template applied successfully")
+                                .setData(request);
 
-        return ResponseEntity.ok(response);
-    }
+                return ResponseEntity.ok(response);
+        }
+
+        /**
+         * Get templates by tag
+         */
+        @GetMapping("/tag/{tag}")
+        public ResponseEntity<BaseResponse<List<ContentTemplateDto>>> getTemplatesByTag(
+                        @PathVariable String tag) {
+
+                log.info("Getting templates by tag: {}", tag);
+
+                List<ContentTemplateDto> templates = templateManagementService.getTemplatesByTag(tag);
+
+                BaseResponse<List<ContentTemplateDto>> response = new BaseResponse<List<ContentTemplateDto>>()
+                                .setErrorMessage("Templates by tag retrieved successfully")
+                                .setData(templates);
+
+                return ResponseEntity.ok(response);
+        }
 }
