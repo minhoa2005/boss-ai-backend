@@ -161,4 +161,103 @@ public interface TemplateUsageLogRepository extends JpaRepository<TemplateUsageL
                         @Param("templateId") Long templateId,
                         @Param("userIds") List<Long> userIds,
                         @Param("wasSuccessful") Boolean wasSuccessful);
+
+        /**
+         * Count total usage by template ID
+         */
+        @Query("SELECT COUNT(tul) FROM TemplateUsageLog tul WHERE tul.template.id = :templateId")
+        Long countByTemplateId(@Param("templateId") Long templateId);
+
+        /**
+         * Count usage by template ID and success status
+         */
+        @Query("SELECT COUNT(tul) FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.wasSuccessful = :wasSuccessful")
+        Long countByTemplateIdAndWasSuccessful(
+                        @Param("templateId") Long templateId,
+                        @Param("wasSuccessful") Boolean wasSuccessful);
+
+        /**
+         * Find usage logs by template ID and success status
+         */
+        @Query("SELECT tul FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.wasSuccessful = :wasSuccessful " +
+                        "ORDER BY tul.usedAt DESC")
+        List<TemplateUsageLog> findByTemplateIdAndWasSuccessful(
+                        @Param("templateId") Long templateId,
+                        @Param("wasSuccessful") Boolean wasSuccessful);
+
+        /**
+         * Get rating distribution by template
+         */
+        @Query("SELECT tul.userRating, COUNT(tul) FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.userRating IS NOT NULL " +
+                        "GROUP BY tul.userRating")
+        List<Object[]> getRatingDistributionByTemplate(@Param("templateId") Long templateId);
+
+        /**
+         * Count successful usage by template in date range
+         */
+        @Query("SELECT COUNT(tul) FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.usedAt BETWEEN :startDate AND :endDate AND " +
+                        "tul.wasSuccessful = :wasSuccessful")
+        Long countSuccessfulUsageByTemplateInDateRange(
+                        @Param("templateId") Long templateId,
+                        @Param("startDate") OffsetDateTime startDate,
+                        @Param("endDate") OffsetDateTime endDate,
+                        @Param("wasSuccessful") Boolean wasSuccessful);
+
+        /**
+         * Get average rating by template in date range
+         */
+        @Query("SELECT AVG(tul.userRating) FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.usedAt BETWEEN :startDate AND :endDate AND " +
+                        "tul.userRating IS NOT NULL")
+        Double getAverageRatingByTemplateInDateRange(
+                        @Param("templateId") Long templateId,
+                        @Param("startDate") OffsetDateTime startDate,
+                        @Param("endDate") OffsetDateTime endDate);
+
+        /**
+         * Get average quality by template in date range
+         */
+        @Query("SELECT AVG(tul.qualityScore) FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.usedAt BETWEEN :startDate AND :endDate AND " +
+                        "tul.qualityScore IS NOT NULL")
+        Double getAverageQualityByTemplateInDateRange(
+                        @Param("templateId") Long templateId,
+                        @Param("startDate") OffsetDateTime startDate,
+                        @Param("endDate") OffsetDateTime endDate);
+
+        /**
+         * Get average generation time by template in date range
+         */
+        @Query("SELECT AVG(tul.generationTimeMs) FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.usedAt BETWEEN :startDate AND :endDate AND " +
+                        "tul.generationTimeMs IS NOT NULL")
+        Double getAverageGenerationTimeByTemplateInDateRange(
+                        @Param("templateId") Long templateId,
+                        @Param("startDate") OffsetDateTime startDate,
+                        @Param("endDate") OffsetDateTime endDate);
+
+        /**
+         * Count completed usage by template in date range (using wasSuccessful as
+         * proxy)
+         */
+        @Query("SELECT COUNT(tul) FROM TemplateUsageLog tul WHERE " +
+                        "tul.template.id = :templateId AND " +
+                        "tul.usedAt BETWEEN :startDate AND :endDate AND " +
+                        "tul.wasSuccessful = :wasCompleted")
+        Long countCompletedUsageByTemplateInDateRange(
+                        @Param("templateId") Long templateId,
+                        @Param("startDate") OffsetDateTime startDate,
+                        @Param("endDate") OffsetDateTime endDate,
+                        @Param("wasCompleted") Boolean wasCompleted);
 }
