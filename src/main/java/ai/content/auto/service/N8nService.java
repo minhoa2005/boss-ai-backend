@@ -125,6 +125,14 @@ public class N8nService {
         payload.put("n8n_url", n8nConfigDtos.stream().filter(x -> x.getAgentName().equalsIgnoreCase("n8n")).findFirst()
                 .get().getAgentUrl());
 
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("industry", request.getIndustry());
+        metadata.put("contentType", request.getContentType());
+        metadata.put("language", request.getLanguage());
+        metadata.put("tone", request.getTone());
+        metadata.put("targetAudience", request.getTargetAudience());
+
+        payload.put("metadata",metadata);
         return payload;
     }
 

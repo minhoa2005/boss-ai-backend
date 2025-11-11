@@ -7,6 +7,7 @@ services:
     ports:
       - "8081:8080" # publish HTTP ra host
     environment:
+      TZ: "Asia/Ho Chi Minh"
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres_db:5432/boss-ai}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-password}
@@ -18,6 +19,8 @@ services:
       REDIS_PASSWORD: 30cc3bc72d20b76f8cda2c6c0f1beebb303ab96aab706c9f
       CORS_ALLOWED_ORIGINS: https://boss-ai-frontend.vercel.app
     restart: unless-stopped
+    volumes:
+      - "./logs: ./log"
     networks:
       - ai-content-net # network dùng chung với n8n-redis-1
 
