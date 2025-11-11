@@ -87,6 +87,12 @@ public class GenerationJob {
     private String aiModel;
 
     /**
+     * OpenAI response ID for tracking and debugging
+     */
+    @Column(name = "openai_response_id", length = 100)
+    private String openaiResponseId;
+
+    /**
      * Generated content result
      */
     @Column(name = "result_content", columnDefinition = "text")

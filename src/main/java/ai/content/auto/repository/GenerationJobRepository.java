@@ -130,7 +130,9 @@ public interface GenerationJobRepository
         @Transactional
         @Query("UPDATE GenerationJob j SET j.status = :status, j.completedAt = :now, " +
                         "j.resultContent = :content, j.processingTimeMs = :processingTime, " +
-                        "j.tokensUsed = :tokensUsed, j.generationCost = :cost, j.updatedAt = :now " +
+                        "j.tokensUsed = :tokensUsed, j.generationCost = :cost, " +
+                        "j.aiProvider = :aiProvider, j.aiModel = :aiModel, " +
+                        "j.openaiResponseId = :openaiResponseId, j.updatedAt = :now " +
                         "WHERE j.jobId = :jobId")
         int updateJobToCompleted(@Param("jobId") String jobId,
                         @Param("status") JobStatus status,
@@ -138,6 +140,9 @@ public interface GenerationJobRepository
                         @Param("processingTime") Long processingTime,
                         @Param("tokensUsed") Integer tokensUsed,
                         @Param("cost") java.math.BigDecimal cost,
+                        @Param("aiProvider") String aiProvider,
+                        @Param("aiModel") String aiModel,
+                        @Param("openaiResponseId") String openaiResponseId,
                         @Param("now") Instant now);
 
         /**

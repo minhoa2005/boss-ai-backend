@@ -327,6 +327,9 @@ public class ContentGenerationQueueService {
                     processingTime,
                     response.getTokensUsed(),
                     response.getGenerationCost(),
+                    response.getAiProvider(),
+                    response.getAiModel(),
+                    response.getOpenaiResponseId(),
                     Instant.now());
         } catch (Exception e) {
             log.error("Failed to update job {} to completed", jobId, e);
