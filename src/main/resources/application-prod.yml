@@ -22,6 +22,6 @@ logging:
   level:
     ai.content.auto: INFO
     org.springframework.security: WARN
-    org.springframework.web.cors: DEBUG  # Enable CORS debugging
+    org.springframework.web.cors: DEBUG # Enable CORS debugging
   file:
     name: /var/log/boss-ai/boss-ai-backend.log

@@ -3,6 +3,7 @@ package ai.content.auto.service;
 import ai.content.auto.dtos.ContentWorkflowRequest;
 import ai.content.auto.entity.N8nConfig;
 import ai.content.auto.exception.BusinessException;
+import ai.content.auto.repository.HookRepository;
 import ai.content.auto.repository.N8nConfigRepository;
 import ai.content.auto.util.StringUtil;
 
@@ -26,6 +27,7 @@ public class N8nService {
     private final RestTemplate restTemplate;
 
     private final N8nConfigRepository n8nConfigRepository;
+    private final HookRepository HookRepository;
 
     public Map<String, Object> triggerWorkflow(ContentWorkflowRequest request, Long userId) {
         try {
@@ -104,6 +106,12 @@ public class N8nService {
         List<N8nConfig> n8nConfigDtos = n8nConfigRepository.findAll();
         String voiceId = "1ec1fc9a5fd84835a10d42ba28b6ff60";
         String avatarId = "0de024c12ae44ecda0db7bebd1c4bfc5";
+        String contentType = request.getContentType();
+        String industry = request.getIndustry();
+        String tone = request.getTone();
+        String targetAudience = request.getTargetAudience();
+        List<Map<String, Object>> hooks = HookRepository.findRelevantHooks(industry, targetAudience, tone,
+                contentType);
         Map<String, Object> payload = new HashMap<>();
         payload.put("content", request.getGeneratedContent());
         payload.put("voice_id", voiceId);
@@ -124,15 +132,14 @@ public class N8nService {
                 .filter(x -> x.getAgentName().equalsIgnoreCase("heygen-generate")).findFirst().get().getXApiKey());
         payload.put("n8n_url", n8nConfigDtos.stream().filter(x -> x.getAgentName().equalsIgnoreCase("n8n")).findFirst()
                 .get().getAgentUrl());
-
+        payload.put("hooks", hooks);
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("industry", request.getIndustry());
         metadata.put("contentType", request.getContentType());
         metadata.put("language", request.getLanguage());
         metadata.put("tone", request.getTone());
         metadata.put("targetAudience", request.getTargetAudience());
-
-        payload.put("metadata",metadata);
+        payload.put("metadata", metadata);
         return payload;
     }
 
