@@ -10,26 +10,25 @@ import ai.content.auto.entity.Hook;
 
 @Repository
 public interface HookRepository extends JpaRepository<Hook, Long> {
-    @Query(value = """
-            SELECT
-              hook_id, hook, industry, target_audience, tone, content_type,
-              (
-                (CASE WHEN industry = :industry THEN 50 ELSE 0 END) +
-                (CASE WHEN target_audience = :targetAudience THEN 30 ELSE 0 END) +
-                (CASE WHEN tone = :tone THEN 10 ELSE 0 END) +
-                (CASE WHEN content_type = :contentType THEN 5 ELSE 0 END)
-              ) AS relevance_score
-            FROM hooks
-            WHERE industry = :industry
-               OR target_audience = :targetAudience
-               OR tone = :tone
-               OR content_type = :contentType
-            ORDER BY relevance_score DESC, hook_id ASC
-            LIMIT 3
-            """, nativeQuery = true)
-    List<Map<String, Object>> findRelevantHooks(
-            @Param("industry") String industry,
-            @Param("targetAudience") String targetAudience,
-            @Param("tone") String tone,
-            @Param("contentType") String contentType);
+  @Query(value = """
+      SELECT hook,
+        (
+          (CASE WHEN industry = :industry THEN 50 ELSE 0 END) +
+          (CASE WHEN target_audience = :targetAudience THEN 30 ELSE 0 END) +
+          (CASE WHEN tone = :tone THEN 10 ELSE 0 END) +
+          (CASE WHEN content_type = :contentType THEN 5 ELSE 0 END)
+        ) AS relevance_score
+      FROM hooks
+      WHERE industry = :industry
+         OR target_audience = :targetAudience
+         OR tone = :tone
+         OR content_type = :contentType
+      ORDER BY relevance_score DESC, hook_id ASC
+      LIMIT 3
+      """, nativeQuery = true)
+  List<Map<String, Object>> findRelevantHooks(
+      @Param("industry") String industry,
+      @Param("targetAudience") String targetAudience,
+      @Param("tone") String tone,
+      @Param("contentType") String contentType);
 }
