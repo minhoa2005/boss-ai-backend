@@ -25,6 +25,10 @@ public class ContentGenerateRequest {
     @Size(max = 200, message = "Target audience must not exceed 200 characters")
     private String targetAudience;
 
+    private String communicationGoal;
+
+    private String businessProfile;
+
     @Size(max = 500, message = "Title must not exceed 500 characters")
     private String title;
 }

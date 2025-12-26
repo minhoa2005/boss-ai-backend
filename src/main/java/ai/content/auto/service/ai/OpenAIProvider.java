@@ -3,6 +3,8 @@ package ai.content.auto.service.ai;
 import ai.content.auto.constants.ContentConstants;
 import ai.content.auto.dtos.ContentGenerateRequest;
 import ai.content.auto.dtos.ContentGenerateResponse;
+import ai.content.auto.dtos.GenerateMetadataRequest;
+import ai.content.auto.dtos.GenerateMetadataResponse;
 import ai.content.auto.entity.User;
 import ai.content.auto.exception.BusinessException;
 import ai.content.auto.service.OpenAiService;
@@ -318,5 +320,24 @@ public class OpenAIProvider implements AIProvider {
         }
 
         return response;
+    }
+
+    @Override
+    public GenerateMetadataResponse generateMetadata(GenerateMetadataRequest request, User user) {
+        try {
+            log.info("Generating metadata with OpenAI for user: {}", user.getId());
+            GenerateMetadataResponse response = openAiService.genMetadata(request, user);
+            log.info("OpenAI metadata generation completed for user: {}", user.getId());
+            return response;
+        } catch (BusinessException e) {
+            log.error("OpenAI metadata generation failed for user: {} - error: {}",
+                    user.getId(), e.getMessage());
+            throw e;
+
+        } catch (Exception e) {
+            log.error("Unexpected error in OpenAI metadata generation for user: {}", user.getId(), e);
+
+            throw new BusinessException("OpenAI metadata generation failed: " + e.getMessage());
+        }
     }
 }

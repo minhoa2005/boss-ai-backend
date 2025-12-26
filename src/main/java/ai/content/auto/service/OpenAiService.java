@@ -2,6 +2,8 @@ package ai.content.auto.service;
 
 import ai.content.auto.constants.ContentConstants;
 import ai.content.auto.dtos.ContentGenerateRequest;
+import ai.content.auto.dtos.GenerateMetadataRequest;
+import ai.content.auto.dtos.GenerateMetadataResponse;
 import ai.content.auto.entity.N8nConfig;
 import ai.content.auto.entity.OpenaiResponseLog;
 import ai.content.auto.entity.User;
@@ -18,6 +20,9 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -347,139 +352,57 @@ public class OpenAiService {
      * Build system prompt that defines the AI's role and capabilities
      */
     private String buildSystemPrompt(ContentGenerateRequest request) {
-        StringBuilder systemPrompt = new StringBuilder();
-
-        // Define role based on content type
-        String contentType = StringUtil.defaultIfBlank(
-                StringUtil.toLowerCase(request.getContentType()),
-                ContentConstants.CONTENT_TYPE_GENERAL);
-
-        if (StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_BLOG) ||
-                StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_ARTICLE)) {
-            systemPrompt.append(
-                    "Bạn là một chuyên gia viết blog và bài viết chuyên nghiệp với hơn 10 năm kinh nghiệm. ");
-            systemPrompt.append("Bạn có khả năng tạo ra nội dung hấp dẫn, có cấu trúc rõ ràng và tối ưu SEO. ");
-        } else if (StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_SOCIAL) ||
-                StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_FACEBOOK) ||
-                StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_INSTAGRAM)) {
-            systemPrompt.append(
-                    "Bạn là một chuyên gia marketing trên mạng xã hội với khả năng tạo ra nội dung viral và tương tác cao. ");
-            systemPrompt.append("Bạn hiểu rõ về xu hướng, hashtag và cách thu hút sự chú ý của người dùng. ");
-        } else if (StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_EMAIL) ||
-                StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_NEWSLETTER)) {
-            systemPrompt.append(
-                    "Bạn là một chuyên gia email marketing với khả năng viết email có tỷ lệ mở và click cao. ");
-            systemPrompt.append("Bạn biết cách tạo subject line hấp dẫn và call-to-action hiệu quả. ");
-        } else if (StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_PRODUCT) ||
-                StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_DESCRIPTION)) {
-            systemPrompt.append(
-                    "Bạn là một chuyên gia copywriting sản phẩm với khả năng tạo ra mô tả sản phẩm thuyết phục và bán hàng. ");
-            systemPrompt.append("Bạn hiểu tâm lý khách hàng và cách highlight lợi ích sản phẩm. ");
-        } else if (StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_AD) ||
-                StringUtil.equalsIgnoreCase(contentType, ContentConstants.CONTENT_TYPE_ADVERTISEMENT)) {
-            systemPrompt.append(
-                    "Bạn là một chuyên gia quảng cáo với khả năng tạo ra nội dung quảng cáo hiệu quả và thuyết phục. ");
-            systemPrompt.append("Bạn biết cách tạo ra hook mạnh mẽ và call-to-action rõ ràng. ");
-        } else {
-            systemPrompt.append(
-                    "Bạn là một chuyên gia viết nội dung đa năng với khả năng tạo ra nội dung chất lượng cao cho nhiều mục đích khác nhau. ");
-        }
-
-        // Add language and tone instructions
-        String language = StringUtil.defaultIfBlank(request.getLanguage(), ContentConstants.LANGUAGE_VIETNAMESE);
-        if (StringUtil.equalsIgnoreCase(language, ContentConstants.LANGUAGE_VIETNAMESE)) {
-            systemPrompt.append("Bạn viết bằng tiếng Việt tự nhiên, dễ hiểu và phù hợp với văn hóa Việt Nam. ");
-        } else if (StringUtil.equalsIgnoreCase(language, ContentConstants.LANGUAGE_ENGLISH)) {
-            systemPrompt.append("You write in natural, clear English that resonates with the target audience. ");
-        }
-
-        // Add tone instructions
-        if (StringUtil.isNotBlank(request.getTone())) {
-            String tone = StringUtil.toLowerCase(request.getTone());
-            if (StringUtil.equalsIgnoreCase(tone, ContentConstants.TONE_PROFESSIONAL) ||
-                    StringUtil.equalsIgnoreCase(tone, ContentConstants.TONE_FORMAL)) {
-                systemPrompt.append("Giọng điệu của bạn chuyên nghiệp, trang trọng và đáng tin cậy. ");
-            } else if (StringUtil.equalsIgnoreCase(tone, ContentConstants.TONE_FRIENDLY) ||
-                    StringUtil.equalsIgnoreCase(tone, ContentConstants.TONE_CASUAL)) {
-                systemPrompt.append("Giọng điệu của bạn thân thiện, gần gũi và dễ tiếp cận. ");
-            } else if (StringUtil.equalsIgnoreCase(tone, ContentConstants.TONE_ENTHUSIASTIC) ||
-                    StringUtil.equalsIgnoreCase(tone, ContentConstants.TONE_EXCITING)) {
-                systemPrompt.append("Giọng điệu của bạn nhiệt huyết, hứng khởi và tràn đầy năng lượng. ");
-            } else if (StringUtil.equalsIgnoreCase(tone, ContentConstants.TONE_HUMOROUS) ||
-                    StringUtil.equalsIgnoreCase(tone, ContentConstants.TONE_FUNNY)) {
-                systemPrompt.append("Giọng điệu của bạn hài hước, vui vẻ nhưng vẫn phù hợp với chủ đề. ");
-            } else if (StringUtil.equalsIgnoreCase(tone, ContentConstants.TONE_AUTHORITATIVE) ||
-                    StringUtil.equalsIgnoreCase(tone, ContentConstants.TONE_EXPERT)) {
-                systemPrompt.append("Giọng điệu của bạn có thẩm quyền, chuyên gia và thuyết phục. ");
-            }
-        }
-
-        // Add industry-specific knowledge
-        if (request.getIndustry() != null) {
-            systemPrompt.append("Bạn có hiểu biết sâu sắc về lĩnh vực ").append(request.getIndustry())
-                    .append(" và có thể sử dụng thuật ngữ chuyên ngành một cách chính xác. ");
-        }
-
-        // Add quality standards
-        systemPrompt.append("\nYêu cầu chất lượng:\n");
-        systemPrompt.append("- Nội dung phải chính xác, hữu ích và có giá trị\n");
-        systemPrompt.append("- Cấu trúc rõ ràng với đầu, thân, kết\n");
-        systemPrompt.append("- Sử dụng từ ngữ phù hợp với đối tượng mục tiêu\n");
-        systemPrompt.append("- Tránh lặp từ và câu cấu trúc đơn điệu\n");
-        systemPrompt.append("- Đảm bảo tính nhất quán về giọng điệu và phong cách");
-
-        return systemPrompt.toString();
+        return """
+                Bạn là chuyên gia viết nội dung kiêm chiến lược nội dung (content strategist) có nhiều năm kinh nghiệm.
+                Nhiệm vụ của bạn:
+                1) Nếu input không rõ ràng về loại nội dung (contentType), giọng điệu (tone) hoặc đối tượng mục tiêu (targetAudience), hãy tự suy luận từ nội dung/ý tưởng/tiêu đề; nếu vẫn mơ hồ, đưa ra giả định hợp lý và ghi rõ giả định đó.
+                2) Luôn xuất đầu ra theo cấu trúc:
+                   - Một khối JSON metadata ngắn (field: inferredContentType, inferredTone, inferredTargetAudience, language, titleSuggestion, recommendedLength, assumptions) — không quá dài, mỗi giá trị ngắn gọn.
+                   - Sau đó là nội dung hoàn chỉnh, sẵn sàng sử dụng (có tiêu đề, đoạn, heading nếu phù hợp).
+                3) Nếu user đã cung cấp language/title/tone thì ưu tiên dùng; nếu không có, tự suy luận.
+                4) Tối ưu SEO, tính dễ đọc và mục tiêu chuyển đổi; đưa ra 3 gợi ý tiêu đề ngắn và 1 meta description (~150 ký tự) ở cuối output.
+                5) Nếu nội dung có vấn đề nhạy cảm hoặc cần làm rõ, cảnh báo trong metadata và hỏi câu hỏi làm rõ thay vì sinh nội dung có hại.
+                6) Trả lời bằng ngôn ngữ yêu cầu trong request (nếu có), ngược lại mặc định tiếng Việt.
+                7) Không thêm phần giải thích nội bộ; chỉ xuất metadata JSON + nội dung + title suggestions + meta description theo định dạng đã nêu.
+                """;
     }
 
-    /**
-     * Build user prompt with specific instructions and context
-     */
+    // ...existing code...
     private String buildUserPrompt(ContentGenerateRequest request) {
         StringBuilder userPrompt = new StringBuilder();
 
-        // Main content request
-        userPrompt.append("Hãy tạo nội dung dựa trên yêu cầu sau:\n\n");
-        userPrompt.append("📝 **Nội dung gốc/Ý tưởng:**\n");
+        userPrompt.append("Yêu cầu nguồn (người dùng):\n");
         userPrompt.append(request.getContent()).append("\n\n");
 
-        // Content specifications
-        userPrompt.append("📋 **Thông số kỹ thuật:**\n");
-
-        if (request.getContentType() != null) {
-            userPrompt.append("• Loại nội dung: ").append(getContentTypeDescription(request.getContentType()))
+        userPrompt.append("Thông tin bổ sung (nếu có):\n");
+        if (request.getTitle() != null && !request.getTitle().isBlank()) {
+            userPrompt.append("- Tiêu đề mong muốn: ").append(request.getTitle()).append("\n");
+        }
+        if (request.getContentType() != null && !request.getContentType().isBlank()) {
+            userPrompt.append("- Loại nội dung (nếu user đã chỉ rõ): ").append(request.getContentType()).append("\n");
+        }
+        if (request.getTone() != null && !request.getTone().isBlank()) {
+            userPrompt.append("- Giọng điệu mong muốn (nếu user đã chỉ rõ): ").append(request.getTone()).append("\n");
+        }
+        if (request.getTargetAudience() != null && !request.getTargetAudience().isBlank()) {
+            userPrompt.append("- Đối tượng mục tiêu (nếu user đã chỉ rõ): ").append(request.getTargetAudience())
                     .append("\n");
         }
-
-        if (request.getTargetAudience() != null) {
-            userPrompt.append("• Đối tượng mục tiêu: ").append(request.getTargetAudience()).append("\n");
+        if (request.getLanguage() != null && !request.getLanguage().isBlank()) {
+            userPrompt.append("- Ngôn ngữ mong muốn: ").append(request.getLanguage()).append("\n");
         }
 
-        if (request.getIndustry() != null) {
-            userPrompt.append("• Lĩnh vực: ").append(request.getIndustry()).append("\n");
-        }
-
-        if (request.getTone() != null) {
-            userPrompt.append("• Giọng điệu: ").append(getToneDescription(request.getTone())).append("\n");
-        }
-
-        if (request.getLanguage() != null) {
-            userPrompt.append("• Ngôn ngữ: ").append(getLanguageDescription(request.getLanguage())).append("\n");
-        }
-
-        // Add specific instructions based on content type
-        userPrompt.append("\n🎯 **Yêu cầu cụ thể:**\n");
-        userPrompt.append(getContentTypeInstructions(request.getContentType()));
-
-        // Final instructions
-        userPrompt.append("\n✨ **Lưu ý quan trọng:**\n");
-        userPrompt.append("- Tạo nội dung hoàn chỉnh, sẵn sàng sử dụng\n");
-        userPrompt.append("- Đảm bảo nội dung phù hợp với đối tượng và mục đích\n");
-        userPrompt.append("- Sử dụng formatting phù hợp (tiêu đề, đoạn văn, bullet points)\n");
-        userPrompt.append("- Tránh nội dung nhạy cảm hoặc không phù hợp\n");
-
-        if (request.getTitle() != null && !request.getTitle().trim().isEmpty()) {
-            userPrompt.append("- Sử dụng tiêu đề: \"").append(request.getTitle()).append("\"\n");
-        }
+        userPrompt.append("\nYêu cầu cụ thể cho output:\n");
+        userPrompt.append(
+                "- Bắt đầu bằng một khối JSON metadata gồm: inferredContentType, inferredTone, inferredTargetAudience, language, titleSuggestion, recommendedLength, assumptions\n");
+        userPrompt.append(
+                "- Sau metadata, xuất nội dung hoàn chỉnh, có cấu trúc (title, heading, đoạn văn, bullet nếu cần). Áp dụng giọng điệu inferredTone và tối ưu cho inferredTargetAudience.\n");
+        userPrompt.append(
+                "- Ở cuối, cung cấp 3 gợi ý tiêu đề ngắn và 1 meta description khoảng 120-160 ký tự, rồi gợi ý 1 CTA ngắn.\n");
+        userPrompt.append(
+                "- Nếu cần làm rõ trước khi tạo nội dung (nghi ngờ mục tiêu/ý định), đừng tạo nội dung hoàn chỉnh — thay vào đó trả về metadata với trường 'clarifyingQuestion' chứa câu hỏi ngắn.\n");
+        userPrompt.append(
+                "- Tránh nội dung nhạy cảm hoặc vi phạm chính sách; nếu chủ đề nhạy cảm, báo rõ trong metadata và đề xuất thay thế an toàn.\n");
 
         return userPrompt.toString();
     }
@@ -948,6 +871,125 @@ public class OpenAiService {
         } catch (Exception e) {
             log.warn("Error extracting OpenAI response ID: {}", e.getMessage());
             return null;
+        }
+    }
+
+    public static String buildPrompt(GenerateMetadataRequest request) {
+        return String.format(
+                "Bạn là một trợ lý tạo nội dung. Dựa trên thông tin sau, hãy chọn 1 giá trị cho mỗi mục: " +
+                        "contentType (ví dụ: blog post, social post, email, product description), " +
+                        "tone (ví dụ: formal, friendly, humorous), " +
+                        "targetAudience (mô tả ngắn đối tượng). " +
+                        "Thông tin: industry: \"%s\"; businessProfile: \"%s\"; communicationGoal: \"%s\". " +
+                        "Trả về duy nhất một JSON hợp lệ với các key: contentType, tone, targetAudience. " +
+                        "Không thêm chú thích hay văn bản khác.",
+                request.getIndustry(), request.getBusinessProfile(), request.getCommunicationGoal());
+    }
+
+    public GenerateMetadataResponse genMetadata(GenerateMetadataRequest request, User user) {
+        N8nConfig n8nConfig = n8nConfigRepository
+                .findN8nConfigByAgentName(ContentConstants.OPENAI_AGENT_NAME)
+                .orElseThrow(() -> new NotFoundException("Cannot find openai config"));
+        try {
+            if (request == null) {
+                throw new BusinessException("GenerateMetadataRequest is required");
+            }
+            if (user == null) {
+                throw new BusinessException("User is required");
+            }
+
+            if (n8nConfig.getXApiKey() == null || n8nConfig.getXApiKey().trim().isEmpty()) {
+                throw new BusinessException("OpenAI API key is not configured");
+            }
+
+            // Build OpenAI request for metadata generation
+            Map<String, Object> openaiRequest = new HashMap<>();
+            openaiRequest.put("model", n8nConfig.getModel());
+            openaiRequest.put("max_output_tokens", ContentConstants.MAX_TOKENS_DEFAULT);
+            openaiRequest.put("temperature", n8nConfig.getTemperature());
+
+            String system = "You are an assistant that MUST return only a single valid JSON object with keys: contentType, tone, targetAudience. Do not add any extra text.";
+            String userPrompt = buildPrompt(request);
+
+            List<Map<String, String>> messages = List.of(
+                    Map.of("role", ContentConstants.OPENAI_ROLE_SYSTEM, "content", system),
+                    Map.of("role", ContentConstants.OPENAI_ROLE_USER, "content", userPrompt));
+            openaiRequest.put("input", messages);
+
+            // Call OpenAI with retry
+            Map<String, Object> responseBody = callOpenAiApiWithRetry(openaiRequest, n8nConfig,
+                    ContentConstants.DEFAULT_MAX_RETRIES);
+
+            // Save log
+            saveResponseLogInTransaction(user, openaiRequest, responseBody, n8nConfig.getModel());
+
+            // Extract generated text from response (supporting 'output' format)
+            String generatedText = null;
+            Object outputObj = responseBody.get("output");
+            if (outputObj instanceof List<?> outputList && !outputList.isEmpty()) {
+                Map<String, Object> firstOutput = (Map<String, Object>) outputList.get(0);
+                Object contentObj = firstOutput.get("content");
+                if (contentObj instanceof List<?> contentList) {
+                    for (Object itemObj : contentList) {
+                        if (itemObj instanceof Map<?, ?> itemMap) {
+                            Object type = itemMap.get("type");
+                            if ("output_text".equals(type) && itemMap.get("text") != null) {
+                                generatedText = itemMap.get("text").toString();
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (StringUtil.isBlank(generatedText)) {
+                // Fallback: try top-level 'text' or 'message' fields
+                Object alt = responseBody.get("text");
+                if (alt == null)
+                    alt = responseBody.get("message");
+                if (alt != null)
+                    generatedText = alt.toString();
+            }
+
+            if (StringUtil.isBlank(generatedText)) {
+                throw new BusinessException("Empty response from OpenAI while generating metadata");
+            }
+
+            String cleaned = cleanGeneratedContent(generatedText);
+
+            // Parse JSON from model output
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(cleaned);
+
+            GenerateMetadataResponse metadata = new GenerateMetadataResponse();
+            if (root.has("contentType")) {
+                metadata.setContentType(root.get("contentType").asText(null));
+            } else if (root.has("inferredContentType")) {
+                metadata.setContentType(root.get("inferredContentType").asText(null));
+            }
+
+            if (root.has("tone")) {
+                metadata.setTone(root.get("tone").asText(null));
+            } else if (root.has("inferredTone")) {
+                metadata.setTone(root.get("inferredTone").asText(null));
+            }
+
+            if (root.has("targetAudience")) {
+                metadata.setTargetAudience(root.get("targetAudience").asText(null));
+            } else if (root.has("inferredTargetAudience")) {
+                metadata.setTargetAudience(root.get("inferredTargetAudience").asText(null));
+            }
+
+            return metadata;
+
+        } catch (BusinessException e) {
+            log.error("Business error generating metadata for user: {}", user != null ? user.getId() : "unknown", e);
+            saveErrorLogInTransaction(user, e.getMessage(), n8nConfig.getModel());
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error generating metadata for user: {}", user != null ? user.getId() : "unknown", e);
+            saveErrorLogInTransaction(user, e.getMessage(), n8nConfig.getModel());
+            throw new InternalServerException("Failed to generate metadata: " + e.getMessage());
         }
     }
 }

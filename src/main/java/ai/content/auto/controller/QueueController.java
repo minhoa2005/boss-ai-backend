@@ -1,6 +1,7 @@
 package ai.content.auto.controller;
 
 import ai.content.auto.dtos.*;
+import ai.content.auto.entity.GenerationJob;
 import ai.content.auto.service.QueueManagementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -157,5 +158,32 @@ public class QueueController {
     // Helper method to get current user ID
     private Long getCurrentUserId() {
         return securityUtil.getCurrentUserId();
+    }
+
+    private void generateMetadata(QueueJobRequest request) {
+        GenerateMetadataRequest metadataRequest = new GenerateMetadataRequest();
+        request.getRequestParams().forEach((key, value) -> {
+            if (key.equals("title")) {
+                metadataRequest.setTitle(value.toString());
+            } else if (key.equals("content")) {
+                metadataRequest.setContent(value.toString());
+            } else if (key.equals("industry")) {
+                metadataRequest.setIndustry(value.toString());
+            } else if (key.equals("communicationGoal")) {
+                metadataRequest.setCommunicationGoal(value.toString());
+            } else if (key.equals("businessProfile")) {
+                metadataRequest.setBusinessProfile(value.toString());
+            }
+        });
+        try {
+            GenerateMetadataResponse metadataResponse = queueManagementService.generateMetadata(metadataRequest);
+            request.getRequestParams().put("generatedTitle", metadataResponse.getGeneratedTitle());
+            request.getRequestParams().put("generatedIndustry", metadataResponse.getGeneratedIndustry());
+            request.getRequestParams().put("generatedBusinessProfile", metadataResponse.getGeneratedBusinessProfile());
+            request.getRequestParams().put("generatedCommunicationGoal",
+                    metadataResponse.getGeneratedCommunicationGoal());
+        } catch (Exception e) {
+            log.error("Metadata generation failed: {}", e.getMessage());
+        }
     }
 }
