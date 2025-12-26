@@ -473,16 +473,12 @@ public class QueueManagementService {
                     ? new HashMap<>(request.getRequestParams())
                     : new HashMap<>();
 
-            Map<String, Object> generatedMeta = new HashMap<>();
             if (metadataResponse.getContentType() != null)
-                generatedMeta.put("contentType", metadataResponse.getContentType());
+                params.put("contentType", metadataResponse.getContentType());
             if (metadataResponse.getTone() != null)
-                generatedMeta.put("tone", metadataResponse.getTone());
+                params.put("tone", metadataResponse.getTone());
             if (metadataResponse.getTargetAudience() != null)
-                generatedMeta.put("targetAudience", metadataResponse.getTargetAudience());
-
-            // Put under a single key to avoid collisions
-            params.put("generatedMetadata", generatedMeta);
+                params.put("targetAudience", metadataResponse.getTargetAudience());
             request.setRequestParams(params);
         } catch (Exception e) {
             log.error("Metadata generation failed: {}", e.getMessage());
