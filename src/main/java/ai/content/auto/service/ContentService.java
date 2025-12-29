@@ -405,15 +405,18 @@ public class ContentService {
         }
 
         // Validate content type against database configurations
-        if (!configurationValidationService.isValidContentType(request.getContentType())) {
-            throw new BusinessException("Invalid content type: " + request.getContentType());
-        }
+        // if
+        // (!configurationValidationService.isValidContentType(request.getContentType()))
+        // {
+        // throw new BusinessException("Invalid content type: " +
+        // request.getContentType());
+        // }
 
         // Validate tone if provided
-        if (StringUtil.isNotBlank(request.getTone()) &&
-                !configurationValidationService.isValidTone(request.getTone())) {
-            throw new BusinessException("Invalid tone: " + request.getTone());
-        }
+        // if (StringUtil.isNotBlank(request.getTone()) &&
+        // !configurationValidationService.isValidTone(request.getTone())) {
+        // throw new BusinessException("Invalid tone: " + request.getTone());
+        // }
 
         // Validate language if provided
         if (StringUtil.isNotBlank(request.getLanguage()) &&
@@ -428,10 +431,12 @@ public class ContentService {
         }
 
         // Validate target audience if provided
-        if (StringUtil.isNotBlank(request.getTargetAudience()) &&
-                !configurationValidationService.isValidTargetAudience(request.getTargetAudience())) {
-            throw new BusinessException("Invalid target audience: " + request.getTargetAudience());
-        }
+        // if (StringUtil.isNotBlank(request.getTargetAudience()) &&
+        // !configurationValidationService.isValidTargetAudience(request.getTargetAudience()))
+        // {
+        // throw new BusinessException("Invalid target audience: " +
+        // request.getTargetAudience());
+        // }
     }
 
     private void validateSaveRequest(ContentSaveRequest request) {
@@ -443,16 +448,18 @@ public class ContentService {
         }
 
         // Validate content type if provided
-        if (StringUtil.isNotBlank(request.getContentType()) &&
-                !configurationValidationService.isValidContentType(request.getContentType())) {
-            throw new BusinessException("Invalid content type: " + request.getContentType());
-        }
+        // if (StringUtil.isNotBlank(request.getContentType()) &&
+        // !configurationValidationService.isValidContentType(request.getContentType()))
+        // {
+        // throw new BusinessException("Invalid content type: " +
+        // request.getContentType());
+        // }
 
         // Validate tone if provided
-        if (StringUtil.isNotBlank(request.getTone()) &&
-                !configurationValidationService.isValidTone(request.getTone())) {
-            throw new BusinessException("Invalid tone: " + request.getTone());
-        }
+        // if (StringUtil.isNotBlank(request.getTone()) &&
+        // !configurationValidationService.isValidTone(request.getTone())) {
+        // throw new BusinessException("Invalid tone: " + request.getTone());
+        // }
 
         // Validate language if provided
         if (StringUtil.isNotBlank(request.getLanguage()) &&
@@ -467,10 +474,12 @@ public class ContentService {
         }
 
         // Validate target audience if provided
-        if (StringUtil.isNotBlank(request.getTargetAudience()) &&
-                !configurationValidationService.isValidTargetAudience(request.getTargetAudience())) {
-            throw new BusinessException("Invalid target audience: " + request.getTargetAudience());
-        }
+        // if (StringUtil.isNotBlank(request.getTargetAudience()) &&
+        // !configurationValidationService.isValidTargetAudience(request.getTargetAudience()))
+        // {
+        // throw new BusinessException("Invalid target audience: " +
+        // request.getTargetAudience());
+        // }
     }
 
     private void validateWorkflowRequest(ContentWorkflowRequest request) {
@@ -482,16 +491,18 @@ public class ContentService {
         }
 
         // Validate content type if provided
-        if (StringUtil.isNotBlank(request.getContentType()) &&
-                !configurationValidationService.isValidContentType(request.getContentType())) {
-            throw new BusinessException("Invalid content type: " + request.getContentType());
-        }
+        // if (StringUtil.isNotBlank(request.getContentType()) &&
+        // !configurationValidationService.isValidContentType(request.getContentType()))
+        // {
+        // throw new BusinessException("Invalid content type: " +
+        // request.getContentType());
+        // }
 
         // Validate tone if provided
-        if (StringUtil.isNotBlank(request.getTone()) &&
-                !configurationValidationService.isValidTone(request.getTone())) {
-            throw new BusinessException("Invalid tone: " + request.getTone());
-        }
+        // if (StringUtil.isNotBlank(request.getTone()) &&
+        // !configurationValidationService.isValidTone(request.getTone())) {
+        // throw new BusinessException("Invalid tone: " + request.getTone());
+        // }
 
         // Validate language if provided
         if (StringUtil.isNotBlank(request.getLanguage()) &&
@@ -506,10 +517,12 @@ public class ContentService {
         }
 
         // Validate target audience if provided
-        if (StringUtil.isNotBlank(request.getTargetAudience()) &&
-                !configurationValidationService.isValidTargetAudience(request.getTargetAudience())) {
-            throw new BusinessException("Invalid target audience: " + request.getTargetAudience());
-        }
+        // if (StringUtil.isNotBlank(request.getTargetAudience()) &&
+        // !configurationValidationService.isValidTargetAudience(request.getTargetAudience()))
+        // {
+        // throw new BusinessException("Invalid target audience: " +
+        // request.getTargetAudience());
+        // }
     }
 
     // Private helper methods

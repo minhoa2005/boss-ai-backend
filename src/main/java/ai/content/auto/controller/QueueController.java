@@ -33,7 +33,7 @@ public class QueueController {
     public ResponseEntity<BaseResponse<QueueJobResponse>> queueJob(
             @Valid @RequestBody QueueJobRequest request) {
 
-        log.info("Queuing content generation job with type: {}", request.getContentType());
+        log.info("Queuing content generation job with type: {}", request.getRequestParams());
 
         QueueJobResponse response = queueManagementService.queueJob(request);
 

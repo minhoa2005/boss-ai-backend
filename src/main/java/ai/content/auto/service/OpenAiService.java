@@ -877,8 +877,8 @@ public class OpenAiService {
     public static String buildPrompt(GenerateMetadataRequest request) {
         return String.format(
                 "Bạn là một trợ lý tạo nội dung. Dựa trên thông tin sau, hãy chọn 1 giá trị cho mỗi mục: " +
-                        "contentType (ví dụ: blog post, social post, email, product description), " +
-                        "tone (ví dụ: formal, friendly, humorous), " +
+                        "contentType, " +
+                        "tone, " +
                         "targetAudience (mô tả ngắn đối tượng). " +
                         "Thông tin: industry: \"%s\"; businessProfile: \"%s\"; communicationGoal: \"%s\". " +
                         "Trả về duy nhất một JSON hợp lệ với các key: contentType, tone, targetAudience. " +
@@ -887,6 +887,7 @@ public class OpenAiService {
     }
 
     public GenerateMetadataResponse genMetadata(GenerateMetadataRequest request, User user) {
+        log.info("Request infor: {}", request);
         N8nConfig n8nConfig = n8nConfigRepository
                 .findN8nConfigByAgentName(ContentConstants.OPENAI_AGENT_NAME)
                 .orElseThrow(() -> new NotFoundException("Cannot find openai config"));
@@ -979,7 +980,7 @@ public class OpenAiService {
             } else if (root.has("inferredTargetAudience")) {
                 metadata.setTargetAudience(root.get("inferredTargetAudience").asText(null));
             }
-
+            log.info("Generated metadata: {}", metadata);
             return metadata;
 
         } catch (BusinessException e) {

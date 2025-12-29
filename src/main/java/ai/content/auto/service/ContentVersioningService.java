@@ -101,6 +101,7 @@ public class ContentVersioningService {
      * @param userId    User ID who owns the content
      * @return Created ContentVersionDto
      */
+    @Transactional
     public ContentVersionDto createVersionForUser(Long contentId, ContentGenerateResponse response, Long userId) {
         try {
             // 1. Validate input
@@ -173,8 +174,8 @@ public class ContentVersioningService {
                     contentId, userId, e.getMessage(), e);
             throw e;
         } catch (Exception e) {
-            log.error("Unexpected error creating version for content: {} by user: {}. Error type: {}, Message: {}",
-                    contentId, userId, e.getClass().getSimpleName(), e.getMessage(), e);
+            log.error("Failed to create version in database for content: {}, user: {}. Root cause: {}",
+                    contentId, userId, e.getMessage(), e);
             throw new InternalServerException("Failed to create content version: " + e.getMessage());
         }
     }

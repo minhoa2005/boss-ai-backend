@@ -296,13 +296,20 @@ public class QueueManagementService {
                 request.getExpirationHours() != null ? request.getExpirationHours() : defaultJobExpirationHours,
                 ChronoUnit.HOURS);
 
+        String contentType = request.getContentType();
+        if (contentType == null && request.getRequestParams() != null) {
+            Object ct = request.getRequestParams().get("contentType");
+            if (ct != null) {
+                contentType = ct.toString();
+            }
+        }
         return GenerationJob.builder()
                 .jobId(jobId)
                 .userId(userId)
                 .requestParams(request.getRequestParams())
                 .status(JobStatus.QUEUED)
                 .priority(request.getPriority())
-                .contentType(request.getContentType())
+                .contentType(contentType)
                 .maxRetries(request.getMaxRetries())
                 .expiresAt(expiresAt)
                 .metadata(request.getMetadata())
