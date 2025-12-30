@@ -34,7 +34,6 @@ public class QueueJobRequest {
     /**
      * Content type being generated
      */
-    @NotBlank(message = "Content type is required")
     private String contentType;
 
     /**

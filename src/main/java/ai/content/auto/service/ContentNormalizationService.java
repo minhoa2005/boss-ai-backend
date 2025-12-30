@@ -34,11 +34,13 @@ public class ContentNormalizationService {
         normalized.setTitle(request.getTitle());
 
         // Normalize configuration values
-        normalized.setContentType(normalizeValue(request.getContentType(), "content_type"));
+        normalized.setContentType(normalizeValue(request.getContentType(),
+                "content_type"));
         normalized.setTone(normalizeValue(request.getTone(), "tone"));
         normalized.setLanguage(normalizeValue(request.getLanguage(), "language"));
         normalized.setIndustry(normalizeValue(request.getIndustry(), "industry"));
-        normalized.setTargetAudience(normalizeValue(request.getTargetAudience(), "target_audience"));
+        normalized.setTargetAudience(normalizeValue(request.getTargetAudience(),
+                "target_audience"));
 
         logNormalizationChanges("ContentGenerateRequest", request, normalized);
 
@@ -62,11 +64,13 @@ public class ContentNormalizationService {
         normalized.setPrompt(request.getPrompt());
 
         // Normalize configuration values
-        normalized.setContentType(normalizeValue(request.getContentType(), "content_type"));
-        normalized.setTone(normalizeValue(request.getTone(), "tone"));
+        // normalized.setContentType(normalizeValue(request.getContentType(),
+        // "content_type"));
+        // normalized.setTone(normalizeValue(request.getTone(), "tone"));
         normalized.setLanguage(normalizeValue(request.getLanguage(), "language"));
         normalized.setIndustry(normalizeValue(request.getIndustry(), "industry"));
-        normalized.setTargetAudience(normalizeValue(request.getTargetAudience(), "target_audience"));
+        // normalized.setTargetAudience(normalizeValue(request.getTargetAudience(),
+        // "target_audience"));
 
         logNormalizationChanges("ContentSaveRequest", request, normalized);
 
@@ -90,11 +94,13 @@ public class ContentNormalizationService {
         normalized.setPrompt(request.getPrompt());
 
         // Normalize configuration values
-        normalized.setContentType(normalizeValue(request.getContentType(), "content_type"));
-        normalized.setTone(normalizeValue(request.getTone(), "tone"));
+        // normalized.setContentType(normalizeValue(request.getContentType(),
+        // "content_type"));
+        // normalized.setTone(normalizeValue(request.getTone(), "tone"));
         normalized.setLanguage(normalizeValue(request.getLanguage(), "language"));
         normalized.setIndustry(normalizeValue(request.getIndustry(), "industry"));
-        normalized.setTargetAudience(normalizeValue(request.getTargetAudience(), "target_audience"));
+        // normalized.setTargetAudience(normalizeValue(request.getTargetAudience(),
+        // "target_audience"));
 
         logNormalizationChanges("ContentWorkflowRequest", request, normalized);
 

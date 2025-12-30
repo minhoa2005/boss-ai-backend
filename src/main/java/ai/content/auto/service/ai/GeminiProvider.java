@@ -3,6 +3,8 @@ package ai.content.auto.service.ai;
 import ai.content.auto.constants.ContentConstants;
 import ai.content.auto.dtos.ContentGenerateRequest;
 import ai.content.auto.dtos.ContentGenerateResponse;
+import ai.content.auto.dtos.GenerateMetadataRequest;
+import ai.content.auto.dtos.GenerateMetadataResponse;
 import ai.content.auto.entity.N8nConfig;
 import ai.content.auto.entity.OpenaiResponseLog;
 import ai.content.auto.entity.User;
@@ -17,6 +19,9 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -1123,5 +1128,118 @@ public class GeminiProvider implements AIProvider {
         }
 
         return response;
+    }
+
+    @Override
+    public GenerateMetadataResponse generateMetadata(GenerateMetadataRequest request, User user) {
+        N8nConfig geminiConfig = getGeminiConfig();
+        try {
+            if (request == null) {
+                throw new BusinessException("GenerateMetadataRequest is required");
+            }
+            if (user == null) {
+                throw new BusinessException("User is required");
+            }
+
+            if (StringUtil.isBlank(geminiConfig.getXApiKey())) {
+                throw new BusinessException("Gemini API key is not configured");
+            }
+
+            // Build Gemini-style request for metadata generation (system + user prompt)
+            String system = "You are an assistant that MUST return only a single valid JSON object with keys: contentType, tone, targetAudience. Do not add any extra text.";
+            String userPrompt = ai.content.auto.service.OpenAiService.buildPrompt(request);
+            String prompt = system + "\n\n" + userPrompt;
+
+            Map<String, Object> geminiRequest = new HashMap<>();
+            Map<String, Object> contents = new HashMap<>();
+            contents.put("role", "user");
+            Map<String, Object> part = new HashMap<>();
+            part.put("text", prompt);
+            contents.put("parts", List.of(part));
+            geminiRequest.put("contents", List.of(contents));
+
+            Map<String, Object> generationConfig = new HashMap<>();
+            generationConfig.put("maxOutputTokens", ContentConstants.MAX_TOKENS_DEFAULT);
+            generationConfig.put("temperature", geminiConfig.getTemperature());
+            geminiRequest.put("generationConfig", generationConfig);
+
+            // Call Gemini
+            Map<String, Object> responseBody = callGeminiApi(geminiRequest, geminiConfig);
+
+            // Save log (use a minimal ContentGenerateRequest for logging)
+            ContentGenerateRequest logReq = new ContentGenerateRequest();
+            logReq.setContent(prompt);
+            logReq.setIndustry(request.getIndustry());
+            logReq.setTargetAudience(request.getBusinessProfile());
+            saveGeminiResponseLogInTransaction(user, logReq, responseBody, geminiConfig);
+
+            // Extract generated text from Gemini response (candidates -> content -> parts)
+            String generatedText = null;
+            Object candidatesObj = responseBody.get("candidates");
+            if (candidatesObj instanceof List<?> candidates && !candidates.isEmpty()) {
+                Object first = candidates.get(0);
+                if (first instanceof Map<?, ?> firstMap) {
+                    Object contentObj = firstMap.get("content");
+                    if (contentObj instanceof Map<?, ?> contentMap) {
+                        Object partsObj = contentMap.get("parts");
+                        if (partsObj instanceof List<?> parts && !parts.isEmpty()) {
+                            Object p = parts.get(0);
+                            if (p instanceof Map<?, ?> pMap && pMap.get("text") != null) {
+                                generatedText = pMap.get("text").toString();
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fallback top-level fields
+            if (StringUtil.isBlank(generatedText)) {
+                Object alt = responseBody.get("text");
+                if (alt == null)
+                    alt = responseBody.get("message");
+                if (alt != null)
+                    generatedText = alt.toString();
+            }
+
+            if (StringUtil.isBlank(generatedText)) {
+                throw new BusinessException("Empty response from Gemini while generating metadata");
+            }
+
+            String cleaned = cleanGeneratedContent(generatedText);
+
+            // Parse JSON from model output
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(cleaned);
+
+            GenerateMetadataResponse metadata = new GenerateMetadataResponse();
+            if (root.has("contentType")) {
+                metadata.setContentType(root.get("contentType").asText(null));
+            } else if (root.has("inferredContentType")) {
+                metadata.setContentType(root.get("inferredContentType").asText(null));
+            }
+
+            if (root.has("tone")) {
+                metadata.setTone(root.get("tone").asText(null));
+            } else if (root.has("inferredTone")) {
+                metadata.setTone(root.get("inferredTone").asText(null));
+            }
+
+            if (root.has("targetAudience")) {
+                metadata.setTargetAudience(root.get("targetAudience").asText(null));
+            } else if (root.has("inferredTargetAudience")) {
+                metadata.setTargetAudience(root.get("inferredTargetAudience").asText(null));
+            }
+
+            return metadata;
+
+        } catch (BusinessException e) {
+            log.error("Business error generating metadata for user: {}", user != null ? user.getId() : "unknown", e);
+            saveGeminiErrorLogInTransaction(user, e.getMessage(), geminiConfig);
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error generating metadata for user: {}", user != null ? user.getId() : "unknown", e);
+            saveGeminiErrorLogInTransaction(user, e.getMessage(), geminiConfig);
+            throw new BusinessException("Failed to generate metadata: " + e.getMessage());
+        }
     }
 }

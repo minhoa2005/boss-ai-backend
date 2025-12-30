@@ -2,6 +2,8 @@ package ai.content.auto.service.ai;
 
 import ai.content.auto.dtos.ContentGenerateRequest;
 import ai.content.auto.dtos.ContentGenerateResponse;
+import ai.content.auto.dtos.GenerateMetadataRequest;
+import ai.content.auto.dtos.GenerateMetadataResponse;
 import ai.content.auto.entity.User;
 import ai.content.auto.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -393,6 +395,19 @@ public class AIProviderManager {
                 .circuitBreakerOpen(cbState != null && cbState.isOpen())
                 .consecutiveFailures(cbState != null ? cbState.getFailureCount() : 0)
                 .build();
+    }
+
+    public GenerateMetadataResponse generateMetadata(GenerateMetadataRequest request, User user) {
+        AIProvider provider = providers.stream().filter(p -> p.getName().equals("OpenAI")).findFirst().orElse(null);
+        if (provider == null) {
+            throw new BusinessException("OpenAI provider not available");
+        }
+        try {
+            GenerateMetadataResponse response = provider.generateMetadata(request, user);
+            return response;
+        } catch (Exception e) {
+            throw new BusinessException("Error generating metadata", e);
+        }
     }
 
     /**

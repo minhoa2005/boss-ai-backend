@@ -2,6 +2,8 @@ package ai.content.auto.service.ai;
 
 import ai.content.auto.dtos.ContentGenerateRequest;
 import ai.content.auto.dtos.ContentGenerateResponse;
+import ai.content.auto.dtos.GenerateMetadataRequest;
+import ai.content.auto.dtos.GenerateMetadataResponse;
 import ai.content.auto.entity.User;
 
 import java.math.BigDecimal;
@@ -66,4 +68,6 @@ public interface AIProvider {
      * Get the current load/usage level (0.0 to 1.0)
      */
     double getCurrentLoad();
+
+    GenerateMetadataResponse generateMetadata(GenerateMetadataRequest request, User user);
 }

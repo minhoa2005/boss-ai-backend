@@ -2,11 +2,13 @@ package ai.content.auto.service;
 
 import ai.content.auto.dtos.*;
 import ai.content.auto.entity.GenerationJob;
+import ai.content.auto.entity.User;
 import ai.content.auto.entity.GenerationJob.JobStatus;
 import ai.content.auto.entity.GenerationJob.JobPriority;
 import ai.content.auto.exception.BusinessException;
 import ai.content.auto.mapper.GenerationJobMapper;
 import ai.content.auto.repository.GenerationJobRepository;
+import ai.content.auto.service.ai.AIProviderManager;
 import ai.content.auto.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +39,7 @@ public class QueueManagementService {
     private final SecurityUtil securityUtil;
     private final RedisTemplate<String, Object> redisTemplate;
     private final WebSocketService webSocketService;
+    private final AIProviderManager aiProviderManager;
 
     @Value("${app.queue.max-concurrent-jobs:10000}")
     private int maxConcurrentJobs;
@@ -63,7 +66,11 @@ public class QueueManagementService {
 
             // Validate queue capacity
             validateQueueCapacity(userId);
-
+            try {
+                generateMetadata(request);
+            } catch (Exception e) {
+                log.warn("Failed to generate metadata, continuing without it: {}", e.getMessage());
+            }
             // Create job entity
             GenerationJob job = createJobEntity(request, userId);
 
@@ -289,13 +296,20 @@ public class QueueManagementService {
                 request.getExpirationHours() != null ? request.getExpirationHours() : defaultJobExpirationHours,
                 ChronoUnit.HOURS);
 
+        String contentType = request.getContentType();
+        if (contentType == null && request.getRequestParams() != null) {
+            Object ct = request.getRequestParams().get("contentType");
+            if (ct != null) {
+                contentType = ct.toString();
+            }
+        }
         return GenerationJob.builder()
                 .jobId(jobId)
                 .userId(userId)
                 .requestParams(request.getRequestParams())
                 .status(JobStatus.QUEUED)
                 .priority(request.getPriority())
-                .contentType(request.getContentType())
+                .contentType(contentType)
                 .maxRetries(request.getMaxRetries())
                 .expiresAt(expiresAt)
                 .metadata(request.getMetadata())
@@ -441,6 +455,41 @@ public class QueueManagementService {
             return "BUSY";
         } else {
             return "HEALTHY";
+        }
+    }
+
+    private void generateMetadata(QueueJobRequest request) {
+        GenerateMetadataRequest metadataRequest = new GenerateMetadataRequest();
+        request.getRequestParams().forEach((key, value) -> {
+            if (key.equals("title")) {
+                metadataRequest.setTitle(value.toString());
+            } else if (key.equals("content")) {
+                metadataRequest.setContent(value.toString());
+            } else if (key.equals("industry")) {
+                metadataRequest.setIndustry(value.toString());
+            } else if (key.equals("communicationGoal")) {
+                metadataRequest.setCommunicationGoal(value.toString());
+            } else if (key.equals("businessProfile")) {
+                metadataRequest.setBusinessProfile(value.toString());
+            }
+        });
+        try {
+            User user = securityUtil.getCurrentUser();
+            GenerateMetadataResponse metadataResponse = aiProviderManager.generateMetadata(metadataRequest, user);
+            Map<String, Object> params = request.getRequestParams() != null
+                    ? new HashMap<>(request.getRequestParams())
+                    : new HashMap<>();
+
+            if (metadataResponse.getContentType() != null)
+                params.put("contentType", metadataResponse.getContentType());
+            if (metadataResponse.getTone() != null)
+                params.put("tone", metadataResponse.getTone());
+            if (metadataResponse.getTargetAudience() != null)
+                params.put("targetAudience", metadataResponse.getTargetAudience());
+            request.setRequestParams(params);
+        } catch (Exception e) {
+            log.error("Metadata generation failed: {}", e.getMessage());
+            throw e;
         }
     }
 }

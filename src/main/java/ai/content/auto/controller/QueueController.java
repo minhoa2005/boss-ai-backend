@@ -1,6 +1,7 @@
 package ai.content.auto.controller;
 
 import ai.content.auto.dtos.*;
+import ai.content.auto.entity.GenerationJob;
 import ai.content.auto.service.QueueManagementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +33,7 @@ public class QueueController {
     public ResponseEntity<BaseResponse<QueueJobResponse>> queueJob(
             @Valid @RequestBody QueueJobRequest request) {
 
-        log.info("Queuing content generation job with type: {}", request.getContentType());
+        log.info("Queuing content generation job with type: {}", request.getRequestParams());
 
         QueueJobResponse response = queueManagementService.queueJob(request);
 
@@ -158,4 +159,5 @@ public class QueueController {
     private Long getCurrentUserId() {
         return securityUtil.getCurrentUserId();
     }
+
 }
