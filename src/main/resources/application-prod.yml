@@ -4,7 +4,7 @@ server:
 # Production CORS Configuration
 app:
   cors:
-    allowed-origins: https://bossai.com.vn
+    allowed-origins: https://bossai.com.vn, https://boss-ai-frontend.vercel.app
     allowed-methods: GET,POST,PUT,DELETE,OPTIONS,PATCH
     allowed-headers: "*"
     allow-credentials: true

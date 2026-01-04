@@ -282,7 +282,8 @@ public class ContentService {
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error triggering workflow for user: {}", securityUtil.getCurrentUserId(), e);
-            throw new InternalServerException("Failed to trigger workflow");
+            // Preserve original exception as cause for easier debugging
+            throw new InternalServerException("Failed to trigger workflow: " + e.getMessage(), e);
         }
     }
 

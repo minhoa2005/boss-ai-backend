@@ -69,7 +69,7 @@ public class ContentController {
         public ResponseEntity<BaseResponse<Map<String, Object>>> triggerWorkflow(
                         @Valid @RequestBody ContentWorkflowRequest request) {
 
-                log.info("Triggering workflow for content type: {}", request.getContentType());
+                log.info("Triggering workflow for content type: {}", request);
 
                 Map<String, Object> response = contentService.triggerWorkflow(request);
 

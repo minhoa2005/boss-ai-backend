@@ -64,13 +64,13 @@ public class ContentNormalizationService {
         normalized.setPrompt(request.getPrompt());
 
         // Normalize configuration values
-        // normalized.setContentType(normalizeValue(request.getContentType(),
-        // "content_type"));
-        // normalized.setTone(normalizeValue(request.getTone(), "tone"));
+        normalized.setContentType(normalizeValue(request.getContentType(),
+                "content_type"));
+        normalized.setTone(normalizeValue(request.getTone(), "tone"));
         normalized.setLanguage(normalizeValue(request.getLanguage(), "language"));
         normalized.setIndustry(normalizeValue(request.getIndustry(), "industry"));
-        // normalized.setTargetAudience(normalizeValue(request.getTargetAudience(),
-        // "target_audience"));
+        normalized.setTargetAudience(normalizeValue(request.getTargetAudience(),
+                "target_audience"));
 
         logNormalizationChanges("ContentSaveRequest", request, normalized);
 
@@ -94,13 +94,13 @@ public class ContentNormalizationService {
         normalized.setPrompt(request.getPrompt());
 
         // Normalize configuration values
-        // normalized.setContentType(normalizeValue(request.getContentType(),
-        // "content_type"));
-        // normalized.setTone(normalizeValue(request.getTone(), "tone"));
+        normalized.setContentType(normalizeValue(request.getContentType(),
+                "content_type"));
+        normalized.setTone(normalizeValue(request.getTone(), "tone"));
         normalized.setLanguage(normalizeValue(request.getLanguage(), "language"));
         normalized.setIndustry(normalizeValue(request.getIndustry(), "industry"));
-        // normalized.setTargetAudience(normalizeValue(request.getTargetAudience(),
-        // "target_audience"));
+        normalized.setTargetAudience(normalizeValue(request.getTargetAudience(),
+                "target_audience"));
 
         logNormalizationChanges("ContentWorkflowRequest", request, normalized);
 
@@ -116,7 +116,7 @@ public class ContentNormalizationService {
         }
 
         return switch (category) {
-            case "content_type" -> configurationValidationService.normalizeContentType(value);
+            case "content_type" -> value;
             case "tone" -> configurationValidationService.normalizeTone(value);
             case "language" -> configurationValidationService.normalizeLanguage(value);
             case "industry" -> value; // Industry normalization would need database lookup
